@@ -44,3 +44,37 @@ export async function listAirtableRecords(
 
   return records;
 }
+
+export async function createAirtableRecords(
+  tableKey: AirtableTableKey,
+  records: Array<{ fields: Record<string, unknown> }>,
+) {
+  const tableId = airtable.tables[tableKey];
+  if (!tableId) throw new Error(`The Airtable table ID for ${tableKey} is not configured.`);
+  const created: AirtableRecord[] = [];
+  for (let index = 0; index < records.length; index += 10) {
+    const result = await airtableRequest<{ records: AirtableRecord[] }>(
+      `${airtable.baseId}/${tableId}?returnFieldsByFieldId=true`,
+      { method: "POST", body: JSON.stringify({ records: records.slice(index, index + 10) }) },
+    );
+    created.push(...result.records);
+  }
+  return created;
+}
+
+export async function updateAirtableRecords(
+  tableKey: AirtableTableKey,
+  records: Array<{ id: string; fields: Record<string, unknown> }>,
+) {
+  const tableId = airtable.tables[tableKey];
+  if (!tableId) throw new Error(`The Airtable table ID for ${tableKey} is not configured.`);
+  const updated: AirtableRecord[] = [];
+  for (let index = 0; index < records.length; index += 10) {
+    const result = await airtableRequest<{ records: AirtableRecord[] }>(
+      `${airtable.baseId}/${tableId}?returnFieldsByFieldId=true`,
+      { method: "PATCH", body: JSON.stringify({ records: records.slice(index, index + 10) }) },
+    );
+    updated.push(...result.records);
+  }
+  return updated;
+}

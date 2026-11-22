@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { getAirtableConfigStatus } from "@/lib/airtable/config-check";
 import { getAirtableReadOverview } from "@/lib/airtable/overview";
@@ -103,7 +104,8 @@ export default async function HomePage() {
           <article className="overview-card" id="refresh">
             <span className="eyebrow">Data operations</span>
             <h2>People and leave refresh</h2>
-            <p>HR and Admin will be able to validate and review weekly uploads here.</p>
+            <p>Review People and planned leave, then validate and commit a weekly HR snapshot.</p>
+            <Link className="text-button hr-open-link" href="/hr">Open HR refresh</Link>
             <span className="card-footnote">Visible to HR and Admin</span>
           </article>
         )}

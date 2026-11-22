@@ -20,7 +20,7 @@ export function AppShell({
     { label: "Team load", href: "/home#team", visible: account.derivedRoles.includes("line_manager") },
     { label: "My projects", href: "/home#projects", visible: account.derivedRoles.includes("project_lead") },
     { label: "Leadership", href: "/home#organisation", visible: canViewOrganisationLoad(account) },
-    { label: "People refresh", href: "/home#refresh", visible: canRunPeopleRefresh(account) },
+    { label: "People and leave", href: "/hr", visible: canRunPeopleRefresh(account) },
   ].filter((item) => item.visible);
 
   async function switchAccount() {
