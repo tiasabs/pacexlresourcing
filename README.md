@@ -25,7 +25,7 @@ HR and Admin can open `/hr` to review existing People and Planned Leave records,
 
 Imports add new records and update changed records only. Missing people are marked `Left organisation`; missing leave is marked `Cancelled`, or `Taken` when its end date is in the past. Records are never deleted. A missing-people rate at or above the configured threshold displays a warning and still permits commit. File contents are held in memory only for the preview and are not retained. Import Log records the file name, actor label, counts, status, and timestamps.
 
-Only leave with approval `Status` of `Approved` is capacity relevant. The importer does not write formula fields such as `Leave Hours`.
+Only leave with approval `Status` of `Approved` is capacity relevant. `Leave Hours` looks up the linked person's `Daily Hours` (contracted hours divided evenly by working days) and multiplies by `Leave Days`, preserving half days and other fractions to two decimal places. The importer does not write formula fields.
 
 ## Foundation endpoints
 
