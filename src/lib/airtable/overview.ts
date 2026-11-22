@@ -4,12 +4,16 @@ import { airtable } from "@/config/airtable";
 import { listAirtableRecords } from "@/lib/airtable/records";
 
 const tableSpecs = [
-  { key: "people", label: "People", fieldId: airtable.fields.people.employeeId },
-  { key: "projectsAndBids", label: "Projects and bids", fieldId: airtable.fields.projectsAndBids.name },
-  { key: "plannedLeave", label: "Planned leave", fieldId: airtable.fields.plannedLeave.leaveId },
-  { key: "resourceBookings", label: "Resource bookings", fieldId: airtable.fields.resourceBookings.bookingId },
-  { key: "publicHolidays", label: "Public holidays", fieldId: airtable.fields.publicHolidays.label },
-  { key: "settings", label: "Settings", fieldId: airtable.fields.settings.settingName },
+  {
+    key: "people",
+    label: "People",
+    fieldIds: [airtable.fields.people.employeeId, airtable.fields.people.lastSeenInHRFile],
+  },
+  { key: "projectsAndBids", label: "Projects and bids", fieldIds: [airtable.fields.projectsAndBids.name] },
+  { key: "plannedLeave", label: "Planned leave", fieldIds: [airtable.fields.plannedLeave.leaveId] },
+  { key: "resourceBookings", label: "Resource bookings", fieldIds: [airtable.fields.resourceBookings.bookingId] },
+  { key: "publicHolidays", label: "Public holidays", fieldIds: [airtable.fields.publicHolidays.label] },
+  { key: "settings", label: "Settings", fieldIds: [airtable.fields.settings.settingName] },
 ] as const;
 
 export type AirtableReadOverview = {
@@ -21,13 +25,13 @@ export async function getAirtableReadOverview(): Promise<AirtableReadOverview> {
   const firstBatch = await Promise.all(
     tableSpecs.slice(0, 3).map(async (table) => ({
       table,
-      records: await listAirtableRecords(table.key, [table.fieldId]),
+      records: await listAirtableRecords(table.key, [...table.fieldIds]),
     })),
   );
   const secondBatch = await Promise.all(
     tableSpecs.slice(3).map(async (table) => ({
       table,
-      records: await listAirtableRecords(table.key, [table.fieldId]),
+      records: await listAirtableRecords(table.key, [...table.fieldIds]),
     })),
   );
   const batches = [...firstBatch, ...secondBatch];
