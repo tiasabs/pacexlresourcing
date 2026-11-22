@@ -150,6 +150,9 @@ a:focus-visible {
   transform: translateY(-1px);
 }
 
+.text-button:disabled { cursor: progress; opacity: 0.65; }
+.switch-error { margin: 0; padding: 0.55rem 1rem; background: var(--color-status-red-bg); color: var(--color-status-red); text-align: center; font-size: 0.78rem; }
+
 .access-hero {
   display: flex;
   align-items: flex-start;

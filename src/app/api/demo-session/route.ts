@@ -18,5 +18,5 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   await clearDemoSession();
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 }
