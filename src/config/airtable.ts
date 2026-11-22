@@ -62,6 +62,7 @@ export const airtable = {
       endDate: "fldYmJGcexLhD2i2J",
       leaveDays: "fldWUDo1TjUsqVuQx",
       leaveHours: "fldDBwu6Dh7hhzQt1",
+      personDailyHours: "fldEKhBuV5k1C1j44",
       hrSyncStatus: "fldkKTLAr3LHYBgeP",
     },
     resourceBookings: {
