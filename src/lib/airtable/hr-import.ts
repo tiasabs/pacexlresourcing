@@ -64,7 +64,10 @@ export function parseCsv(input: string): string[][] {
 
 function asDate(value: string, field: string, row: number, issues: ImportIssue[]) {
   if (!value) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) {
+  const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00Z`)
+    : null;
+  if (!parsedDate || Number.isNaN(parsedDate.valueOf()) || parsedDate.toISOString().slice(0, 10) !== value) {
     issues.push({ row, message: `${field} must use YYYY-MM-DD.` });
     return null;
   }
