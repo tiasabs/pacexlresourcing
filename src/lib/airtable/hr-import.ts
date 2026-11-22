@@ -64,14 +64,14 @@ export function parseCsv(input: string): string[][] {
 
 function asDate(value: string, field: string, row: number, issues: ImportIssue[]) {
   if (!value) return null;
-  const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(value)
-    ? new Date(`${value}T00:00:00Z`)
-    : null;
-  if (!parsedDate || Number.isNaN(parsedDate.valueOf()) || parsedDate.toISOString().slice(0, 10) !== value) {
-    issues.push({ row, message: `${field} must use YYYY-MM-DD.` });
+  const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
+  const isoDate = match ? `${match[3]}-${match[2]}-${match[1]}` : null;
+  const parsedDate = isoDate ? new Date(`${isoDate}T00:00:00Z`) : null;
+  if (!isoDate || !parsedDate || Number.isNaN(parsedDate.valueOf()) || parsedDate.toISOString().slice(0, 10) !== isoDate) {
+    issues.push({ row, message: `${field} must be a real date in DD-MM-YYYY format.` });
     return null;
   }
-  return value;
+  return isoDate;
 }
 
 function numberValue(value: string, field: string, row: number, issues: ImportIssue[], allowBlank = false) {

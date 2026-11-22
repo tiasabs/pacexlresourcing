@@ -13,7 +13,7 @@ function ImportCard({ kind, title, description, template, preview, onPreview, on
   const [file, setFile] = useState<File | null>(null);
   return <section className="hr-import-card">
     <div className="hr-import-title"><div><p className="eyebrow">Full snapshot CSV</p><h2>{title}</h2></div><a className="text-button template-link" href={template} download>Download template</a></div>
-    <p>{description}</p>
+    <p>{description} Dates must use DD-MM-YYYY.</p>
     <div className="hr-upload-row"><label className="file-picker">Choose CSV<input type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label><span>{file?.name ?? "No file selected"}</span><button className="text-button" type="button" disabled={!file || busy} onClick={() => file && onPreview(kind, file)}>Preview upload</button></div>
     {preview?.kind === kind && <div className="hr-preview" aria-live="polite">
       <h3>Preview: {preview.fileName}</h3>
