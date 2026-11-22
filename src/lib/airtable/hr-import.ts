@@ -18,6 +18,7 @@ export type ImportPreview = {
   markedCancelled: number;
   missingPercentage: number;
   missingWarning: boolean;
+  warnings: string[];
   issues: ImportIssue[];
 };
 
@@ -30,8 +31,35 @@ type PendingImport = {
 };
 
 const pending = new Map<string, PendingImport>();
-const peopleHeaders = ["Employee ID Number", "First Name", "Middle Name", "Last Name", "Work Email", "Role Name", "Role Level", "Team", "Region", "Contracted Hours", "Working Days per Week", "Line Manager Employee ID", "Status", "Start Date", "End Date"];
-const leaveHeaders = ["Leave ID", "Employee ID Number", "Title", "Type", "Status", "Start Date", "End Date", "Leave Days"];
+const aliases: Record<ImportKind, Record<string, string[]>> = {
+  people: {
+    "Employee ID Number": ["employee id number", "employee id", "employee number", "employee no", "staff id", "staff number", "person number", "worker id", "personnel number", "personnel no"],
+    "First Name": ["first name", "given name", "forename"],
+    "Middle Name": ["middle name", "middle names", "middle initial"],
+    "Last Name": ["last name", "surname", "family name"],
+    "Work Email": ["work email", "business email", "work email address", "email", "email address"],
+    "Role Name": ["role name", "role", "job title", "position title", "job role", "job name", "position"],
+    "Role Level": ["role level", "job level", "management level"],
+    Team: ["team", "department", "department name", "business unit", "function", "division"],
+    Region: ["region", "work region", "country region", "office region", "work location region"],
+    "Contracted Hours": ["contracted hours", "contracted weekly hours", "weekly hours", "hours per week", "fte hours per week"],
+    "Working Days per Week": ["working days per week", "days per week", "work days per week", "work days"],
+    "Line Manager Employee ID": ["line manager employee id", "line manager id", "manager employee id", "manager id", "supervisor id"],
+    Status: ["status", "employment status", "worker status", "employee status"],
+    "Start Date": ["start date", "hire date", "employment start date", "date started"],
+    "End Date": ["end date", "termination date", "leaving date", "employment end date"],
+  },
+  plannedLeave: {
+    "Leave ID": ["leave id", "leave request id", "absence id", "absence request id", "request id", "time off id"],
+    "Employee ID Number": ["employee id number", "employee id", "employee number", "staff id", "staff number", "person number", "worker id", "personnel number", "personnel no"],
+    Title: ["title", "leave title", "request name", "leave request"],
+    Type: ["type", "leave type", "absence type", "time off type"],
+    Status: ["status", "approval status", "leave status", "absence status"],
+    "Start Date": ["start date", "leave start date", "absence start date", "date from", "start"],
+    "End Date": ["end date", "leave end date", "absence end date", "date to", "end"],
+    "Leave Days": ["leave days", "days", "duration days", "number of days", "absence days", "time off days"],
+  },
+};
 const roleLevels = ["Team Member", "Manager", "Head", "Director", "Other"];
 const teams = ["Human Resources", "Legal", "Partnerships", "Operations", "Project", "Finance", "Communications & Data", "Digital"];
 
@@ -84,21 +112,88 @@ function numberValue(value: string, field: string, row: number, issues: ImportIs
   return number;
 }
 
+const normalizeHeader = (value: string) => value.toLocaleLowerCase("en-GB").replace(/[^a-z0-9]/g, "");
+
+function normalizeTeam(value: string) {
+  const key = normalizeHeader(value);
+  const values: Record<string, string> = {
+    hr: "Human Resources", humanresources: "Human Resources", humanresourcing: "Human Resources", people: "Human Resources", peopleteam: "Human Resources",
+    legal: "Legal", legalservices: "Legal", partnerships: "Partnerships", bids: "Partnerships", fundraising: "Partnerships", businessdevelopment: "Partnerships",
+    operations: "Operations", ops: "Operations", project: "Project", projects: "Project", finance: "Finance",
+    communicationsdata: "Communications & Data", communications: "Communications & Data", comms: "Communications & Data",
+    digital: "Digital", it: "Digital", technology: "Digital", dataanddigital: "Digital",
+  };
+  return values[key] ?? value.trim();
+}
+
+function normalizeRegion(value: string) {
+  const key = normalizeHeader(value);
+  const values: Record<string, string> = { ni: "Northern Ireland", northernireland: "Northern Ireland", england: "England", scotland: "Scotland", wales: "Wales", ireland: "Ireland", other: "Other" };
+  return values[key] ?? value.trim();
+}
+
+function normalizePersonStatus(value: string) {
+  const key = normalizeHeader(value);
+  const values: Record<string, string> = {
+    active: "Active", current: "Active", employed: "Active", working: "Active",
+    onleave: "On long leave", longtermleave: "On long leave", maternityleave: "On long leave", parentalleave: "On long leave", secondment: "On long leave", left: "Left organisation",
+    inactive: "Left organisation", terminated: "Left organisation", leaver: "Left organisation", leftorganisation: "Left organisation",
+  };
+  return values[key] ?? value.trim();
+}
+
+function normalizeLeaveType(value: string, warnings: string[]) {
+  const key = normalizeHeader(value);
+  if (["annual", "annualleave", "holiday", "vacation", "paidtimeoff", "pto"].includes(key)) return "Annual";
+  if (["sick", "sickleave", "illness"].includes(key)) return "Sick";
+  if (["other", "parental", "unpaid", "compassionate", "bereavement", "medical"].includes(key)) return "Other";
+  if (value.trim()) {
+    warnings.push(`Leave type “${value.trim()}” is grouped as Other.`);
+    return "Other";
+  }
+  return "";
+}
+
+function normalizeLeaveStatus(value: string) {
+  const key = normalizeHeader(value);
+  const values: Record<string, string> = {
+    approved: "Approved", accepted: "Approved", authorised: "Approved", authorized: "Approved", confirmed: "Approved",
+    requested: "Requested", pending: "Requested", awaitingapproval: "Requested", submitted: "Requested",
+    declined: "Declined", rejected: "Declined", refused: "Declined",
+  };
+  return values[key] ?? value.trim();
+}
+
 function parseRows(csv: string, kind: ImportKind) {
   const matrix = parseCsv(csv);
-  const headers = kind === "people" ? peopleHeaders : leaveHeaders;
   const issues: ImportIssue[] = [];
+  const warnings: string[] = [];
   if (!matrix.length) return { rows: [], issues: [{ row: 1, message: "The CSV is empty." }] };
-  if (matrix[0].length !== headers.length || matrix[0].some((value, index) => value !== headers[index])) {
-    return { rows: [], issues: [{ row: 1, message: `Headers must exactly match the ${kind === "people" ? "People" : "Planned Leave"} template.` }] };
+  const headerMap = new Map<string, number>();
+  const columns = aliases[kind];
+  for (const [columnIndex, header] of matrix[0].entries()) {
+    const normalized = normalizeHeader(header);
+    const canonical = Object.entries(columns).find(([, choices]) => choices.some((choice) => normalizeHeader(choice) === normalized))?.[0];
+    if (!canonical) continue;
+    if (headerMap.has(canonical)) {
+      issues.push({ row: 1, message: `More than one column matches “${canonical}” (${matrix[0][headerMap.get(canonical)!]} and ${header}). Keep just one.` });
+    } else {
+      headerMap.set(canonical, columnIndex);
+    }
   }
+  const idHeader = kind === "people" ? "Employee ID Number" : "Leave ID";
+  if (!headerMap.has(idHeader)) return { rows: [], issues: [{ row: 1, message: `Could not identify the stable ${idHeader} column. Rename that one header to “${idHeader}” and try again.` }], warnings };
+  const requiredHeaders = kind === "people" ? ["Employee ID Number"] : ["Leave ID", "Employee ID Number"];
+  const missingColumns = requiredHeaders.filter((header) => !headerMap.has(header));
+  if (missingColumns.length) return { rows: [], issues: missingColumns.map((header) => ({ row: 1, message: `Required identifier column “${header}” is missing.` })), warnings };
+  const absentOptional = Object.keys(columns).filter((header) => !requiredHeaders.includes(header) && !headerMap.has(header));
+  if (absentOptional.length) warnings.push(`Columns absent from this export will be left unchanged on existing records: ${absentOptional.join(", ")}.`);
   const rows: Array<Record<string, unknown>> = [];
   const seen = new Set<string>();
   for (const [index, cells] of matrix.slice(1).entries()) {
     const rowNumber = index + 2;
-    if (cells.length !== headers.length) { issues.push({ row: rowNumber, message: `Expected ${headers.length} columns; found ${cells.length}.` }); continue; }
-    const values = Object.fromEntries(headers.map((header, i) => [header, cells[i] ?? ""])) as Record<string, string>;
-    const idKey = kind === "people" ? "Employee ID Number" : "Leave ID";
+    const values: Record<string, string> = Object.fromEntries(Object.entries(columns).map(([header]) => [header, cells[headerMap.get(header) ?? -1] ?? "" ]));
+    const idKey = idHeader;
     const stableId = values[idKey].trim();
     if (!stableId) { issues.push({ row: rowNumber, message: `${idKey} is required.` }); continue; }
     if (seen.has(stableId)) { issues.push({ row: rowNumber, message: `Duplicate ${idKey}: ${stableId}.` }); continue; }
@@ -107,27 +202,36 @@ function parseRows(csv: string, kind: ImportKind) {
     const endDate = asDate(values["End Date"], "End Date", rowNumber, issues);
     if (startDate && endDate && endDate < startDate) issues.push({ row: rowNumber, message: "End Date must be on or after Start Date." });
     if (kind === "people") {
-      const contractedHours = numberValue(values["Contracted Hours"], "Contracted Hours", rowNumber, issues);
-      const workDays = numberValue(values["Working Days per Week"], "Working Days per Week", rowNumber, issues);
+      const contractedHours = numberValue(values["Contracted Hours"], "Contracted Hours", rowNumber, issues, true);
+      const workDays = numberValue(values["Working Days per Week"], "Working Days per Week", rowNumber, issues, true);
       if (workDays !== null && (workDays < 1 || workDays > 7)) issues.push({ row: rowNumber, message: "Working Days per Week must be between 1 and 7." });
-      for (const field of ["First Name", "Last Name", "Status", "Team", "Region"]) if (!values[field]) issues.push({ row: rowNumber, message: `${field} is required.` });
-      if (values.Status && !["Active", "On long leave", "Left organisation"].includes(values.Status)) issues.push({ row: rowNumber, message: "Status must be Active, On long leave, or Left organisation." });
-      const teamValues = values.Team.split("|").map((item) => item.trim()).filter(Boolean);
+      values.Team = values.Team.split("|").map(normalizeTeam).join("|");
+      values.Region = normalizeRegion(values.Region);
+      values.Status = normalizePersonStatus(values.Status);
+      const invalidTeam = values.Team && values.Team.split("|").some((item) => !teams.includes(item));
+      const invalidRegion = values.Region && !["England", "Wales", "Scotland", "Northern Ireland", "Ireland", "Other"].includes(values.Region);
+      const invalidStatus = values.Status && !["Active", "On long leave", "Left organisation"].includes(values.Status);
+      if (invalidTeam) warnings.push(`Row ${rowNumber}: team “${values.Team}” is unfamiliar; an existing person's team will be left unchanged.`);
+      if (invalidRegion) warnings.push(`Row ${rowNumber}: region “${values.Region}” is unfamiliar; an existing person's region will be left unchanged.`);
+      if (invalidStatus) warnings.push(`Row ${rowNumber}: employment status “${values.Status}” is unfamiliar; an existing person's status will be left unchanged.`);
+      if (invalidTeam) values.Team = "";
+      if (invalidRegion) values.Region = "";
+      if (invalidStatus) values.Status = "";
       const levelValues = values["Role Level"].split("|").map((item) => item.trim()).filter(Boolean);
-      if (teamValues.some((item) => !teams.includes(item))) issues.push({ row: rowNumber, message: `Team values must be selected from: ${teams.join(", ")}. Separate multiple values with |.` });
-      if (levelValues.some((item) => !roleLevels.includes(item))) issues.push({ row: rowNumber, message: `Role Level values must be selected from: ${roleLevels.join(", ")}. Separate multiple values with |.` });
-      if (values.Region && !["England", "Wales", "Scotland", "Northern Ireland", "Ireland", "Other"].includes(values.Region)) issues.push({ row: rowNumber, message: "Region must be England, Wales, Scotland, Northern Ireland, Ireland, or Other." });
-      rows.push({ ...values, "Contracted Hours": contractedHours, "Working Days per Week": workDays, "Start Date": startDate, "End Date": endDate, _row: rowNumber });
+      const normalizedLevels = levelValues.map((item) => roleLevels.find((level) => normalizeHeader(level) === normalizeHeader(item)) ?? "Other");
+      if (levelValues.some((item, itemIndex) => normalizedLevels[itemIndex] === "Other" && normalizeHeader(item) !== "other")) warnings.push(`Unknown role level “${levelValues.find((item, itemIndex) => normalizedLevels[itemIndex] === "Other") }” is grouped as Other (row ${rowNumber}).`);
+      values["Role Level"] = normalizedLevels.join("|");
+      rows.push({ ...values, _invalidTeam: Boolean(invalidTeam), _invalidRegion: Boolean(invalidRegion), _invalidStatus: Boolean(invalidStatus), "Contracted Hours": contractedHours, "Working Days per Week": workDays, "Start Date": startDate, "End Date": endDate, _row: rowNumber });
     } else {
-      const leaveDays = numberValue(values["Leave Days"], "Leave Days", rowNumber, issues);
+      const leaveDays = numberValue(values["Leave Days"], "Leave Days", rowNumber, issues, true);
+      values.Type = normalizeLeaveType(values.Type, warnings);
+      values.Status = normalizeLeaveStatus(values.Status);
       if (!values["Employee ID Number"]) issues.push({ row: rowNumber, message: "Employee ID Number is required." });
-      if (!values.Type || !["Annual", "Sick", "Other"].includes(values.Type)) issues.push({ row: rowNumber, message: "Type must be Annual, Sick, or Other." });
-      if (!values.Status || !["Requested", "Approved", "Declined"].includes(values.Status)) issues.push({ row: rowNumber, message: "Status must be Requested, Approved, or Declined." });
-      if (!startDate || !endDate) issues.push({ row: rowNumber, message: "Start Date and End Date are required for leave." });
+      if (values.Status && !["Requested", "Approved", "Declined"].includes(values.Status)) issues.push({ row: rowNumber, message: `Unrecognized leave status “${values.Status}”. Map it to Requested, Approved, or Declined.` });
       rows.push({ ...values, "Leave Days": leaveDays, "Start Date": startDate, "End Date": endDate, _row: rowNumber });
     }
   }
-  return { rows, issues };
+  return { rows, issues, warnings };
 }
 
 const val = (record: AirtableRecord, fieldId: string) => record.fields[fieldId];
@@ -141,7 +245,7 @@ async function getMassMissingGuard() {
   return typeof value === "number" && value > 0 ? value : 0.1;
 }
 
-async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Record<string, unknown>>, issues: ImportIssue[], uploadedBy: string): Promise<ImportPreview> {
+async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Record<string, unknown>>, issues: ImportIssue[], warnings: string[], uploadedBy: string): Promise<ImportPreview> {
   const f = airtable.fields;
   let added = 0, updated = 0, unchanged = 0, markedInactive = 0, markedCancelled = 0;
   let missingPercentage = 0, missingWarning = false;
@@ -150,6 +254,12 @@ async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Reco
     const byEmployeeId = new Map(people.map((person) => [stringVal(person, f.people.employeeId), person]));
     const incoming = new Set(rows.map((row) => String(row["Employee ID Number"])));
     for (const row of rows) {
+      const existing = byEmployeeId.get(String(row["Employee ID Number"]));
+      if (!existing) {
+        if (row._invalidTeam) issues.push({ row: Number(row._row), message: "Map the team to one of the configured teams before creating this person." });
+        if (row._invalidRegion) issues.push({ row: Number(row._row), message: "Map the region to England, Scotland, Wales, Northern Ireland, Ireland, or Other before creating this person." });
+        if (row._invalidStatus) issues.push({ row: Number(row._row), message: "Map the employment status to Active, On long leave, or Left organisation before creating this person." });
+      }
       const managerId = String(row["Line Manager Employee ID"] ?? "").trim();
       if (managerId && !incoming.has(managerId) && !byEmployeeId.has(managerId)) {
         issues.push({ row: Number(row._row), message: `Unknown Line Manager Employee ID: ${managerId}.` });
@@ -157,7 +267,22 @@ async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Reco
     }
     for (const row of rows) {
       const existing = byEmployeeId.get(String(row["Employee ID Number"]));
-      if (!existing) { added++; continue; }
+      if (!existing) {
+        for (const field of ["First Name", "Last Name", "Team", "Region"]) {
+          if (!String(row[field] ?? "").trim()) issues.push({ row: Number(row._row), message: `${field} is needed to create a new People record.` });
+        }
+        if (typeof row["Contracted Hours"] !== "number") issues.push({ row: Number(row._row), message: "Contracted Hours is needed to create a new People record." });
+        if (row["Working Days per Week"] === null) {
+          row["Working Days per Week"] = 5;
+          warnings.push(`Row ${row._row}: Working Days per Week was blank; defaulted to 5.`);
+        }
+        if (!String(row.Status ?? "").trim() && !row._invalidStatus) {
+          row.Status = "Active";
+          warnings.push(`Row ${row._row}: Status was blank; defaulted to Active.`);
+        }
+        added++;
+        continue;
+      }
       const fields = peopleFields(row, byEmployeeId);
       const changed = Object.entries(fields).some(([id, value]) => comparable(val(existing, id)) !== comparable(value));
       if (changed) updated++; else unchanged++;
@@ -177,7 +302,13 @@ async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Reco
     for (const row of rows) {
       if (!personIds.has(String(row["Employee ID Number"]))) issues.push({ row: Number(row._row), message: `Unknown Employee ID Number: ${row["Employee ID Number"]}.` });
       const existing = byLeaveId.get(String(row["Leave ID"]));
-      if (!existing) { added++; continue; }
+      if (!existing) {
+        for (const field of ["Type", "Status", "Start Date", "End Date", "Leave Days"]) {
+          if (row[field] === null || row[field] === undefined || row[field] === "") issues.push({ row: Number(row._row), message: `${field} is needed to create a new Planned Leave record.` });
+        }
+        added++;
+        continue;
+      }
       const fields = leaveFields(row, people, f.people.employeeId);
       const changed = Object.entries(fields).some(([id, value]) => comparable(val(existing, id)) !== comparable(value));
       if (changed) updated++; else unchanged++;
@@ -185,7 +316,7 @@ async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Reco
     const incoming = new Set(rows.map((row) => String(row["Leave ID"])));
     markedCancelled = leaves.filter((leave) => !incoming.has(stringVal(leave, f.plannedLeave.leaveId)) && val(leave, f.plannedLeave.hrSyncStatus) !== "Cancelled" && val(leave, f.plannedLeave.hrSyncStatus) !== "Taken").length;
   }
-  const preview: ImportPreview = { previewId: randomUUID(), kind, fileName, rowsReceived: rows.length, added, updated, unchanged, markedInactive, markedCancelled, missingPercentage, missingWarning, issues, };
+  const preview: ImportPreview = { previewId: randomUUID(), kind, fileName, rowsReceived: rows.length, added, updated, unchanged, markedInactive, markedCancelled, missingPercentage, missingWarning, warnings: Array.from(new Set(warnings)), issues, };
   pending.set(preview.previewId, { kind, fileName, rows, preview, uploadedBy });
   return preview;
 }
@@ -194,31 +325,51 @@ function peopleFields(row: Record<string, unknown>, people: Map<string, Airtable
   const p = airtable.fields.people;
   const managerId = String(row["Line Manager Employee ID"] ?? "").trim();
   const managerRecord = managerId ? people.get(managerId) : undefined;
-  return {
-    [p.employeeId]: row["Employee ID Number"], [p.firstName]: row["First Name"], [p.middleName]: row["Middle Name"] || null,
-    [p.lastName]: row["Last Name"], [p.workEmail]: row["Work Email"] || null, [p.roleName]: row["Role Name"] || null,
-    [p.roleLevel]: String(row["Role Level"] ?? "").split("|").map((item) => item.trim()).filter(Boolean),
-    [p.team]: String(row.Team ?? "").split("|").map((item) => item.trim()).filter(Boolean), [p.region]: row.Region, [p.status]: row.Status,
-    [p.contractedHours]: row["Contracted Hours"], [p.workingDaysPerWeek]: row["Working Days per Week"],
-    [p.lineManager]: managerRecord ? [managerRecord.id] : [], [p.startDate]: row["Start Date"], [p.endDate]: row["End Date"],
-    [p.lastSeenInHRFile]: new Date().toISOString().slice(0, 10),
+  const fields: Record<string, unknown> = { [p.employeeId]: row["Employee ID Number"], [p.lastSeenInHRFile]: new Date().toISOString().slice(0, 10) };
+  const assignIfProvided = (fieldId: string, label: string, transform?: (value: unknown) => unknown) => {
+    const value = row[label];
+    if (value === null || value === undefined || value === "") return;
+    fields[fieldId] = transform ? transform(value) : value;
   };
+  assignIfProvided(p.firstName, "First Name");
+  assignIfProvided(p.middleName, "Middle Name");
+  assignIfProvided(p.lastName, "Last Name");
+  assignIfProvided(p.workEmail, "Work Email");
+  assignIfProvided(p.roleName, "Role Name");
+  assignIfProvided(p.roleLevel, "Role Level", (value) => String(value).split("|").map((item) => item.trim()).filter(Boolean));
+  assignIfProvided(p.team, "Team", (value) => String(value).split("|").map((item) => item.trim()).filter(Boolean));
+  assignIfProvided(p.region, "Region");
+  assignIfProvided(p.status, "Status");
+  assignIfProvided(p.contractedHours, "Contracted Hours");
+  assignIfProvided(p.workingDaysPerWeek, "Working Days per Week");
+  assignIfProvided(p.startDate, "Start Date");
+  assignIfProvided(p.endDate, "End Date");
+  if (managerRecord) fields[p.lineManager] = [managerRecord.id];
+  return fields;
 }
 
 function leaveFields(row: Record<string, unknown>, people: AirtableRecord[], employeeIdField: string): Record<string, unknown> {
   const l = airtable.fields.plannedLeave;
   const person = people.find((candidate) => stringVal(candidate, employeeIdField) === row["Employee ID Number"]);
   const past = String(row["End Date"]) < new Date().toISOString().slice(0, 10);
-  return {
-    [l.leaveId]: row["Leave ID"], [l.title]: row.Title || `${row.Type} leave`, [l.person]: person ? [person.id] : [],
-    [l.type]: row.Type, [l.status]: row.Status, [l.startDate]: row["Start Date"], [l.endDate]: row["End Date"],
-    [l.leaveDays]: row["Leave Days"], [l.hrSyncStatus]: past ? "Taken" : "Current",
+  const fields: Record<string, unknown> = { [l.leaveId]: row["Leave ID"], [l.person]: person ? [person.id] : [] };
+  const assignIfPresent = (fieldId: string, label: string) => {
+    const value = row[label];
+    if (value !== null && value !== undefined && value !== "") fields[fieldId] = value;
   };
+  assignIfPresent(l.title, "Title");
+  assignIfPresent(l.type, "Type");
+  assignIfPresent(l.status, "Status");
+  assignIfPresent(l.startDate, "Start Date");
+  assignIfPresent(l.endDate, "End Date");
+  assignIfPresent(l.leaveDays, "Leave Days");
+  if (row["End Date"]) fields[l.hrSyncStatus] = past ? "Taken" : "Current";
+  return fields;
 }
 
 export async function previewHrImport(input: { kind: ImportKind; fileName: string; csv: string; uploadedBy: string }) {
   const parsed = parseRows(input.csv, input.kind);
-  return buildPreview(input.kind, input.fileName, parsed.rows, parsed.issues, input.uploadedBy);
+  return buildPreview(input.kind, input.fileName, parsed.rows, parsed.issues, parsed.warnings ?? [], input.uploadedBy);
 }
 
 export async function commitHrImport(previewId: string) {

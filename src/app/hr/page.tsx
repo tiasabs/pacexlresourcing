@@ -16,7 +16,7 @@ export default async function HrPage() {
         <div>
           <p className="eyebrow">Data operations</p>
           <h1>People and leave</h1>
-          <p className="dashboard-lede">Review the current HR records, then preview a complete weekly snapshot before applying changes.</p>
+          <p className="dashboard-lede">Review current HR records, upload a people or leave export, and check the proposed Airtable changes before submitting.</p>
         </div>
       </section>
       <HrImportWorkspace people={lists.people} leave={lists.leave} />
