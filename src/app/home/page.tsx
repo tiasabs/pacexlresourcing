@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { getAirtableConfigStatus } from "@/lib/airtable/config-check";
+import { getAirtableReadOverview } from "@/lib/airtable/overview";
 import { getDemoSession } from "@/lib/demo/session";
-import { canRunPeopleRefresh, canViewOrganisationLoad, roleLabels } from "@/lib/auth/permissions";
+import {
+  canRunPeopleRefresh,
+  canViewAllBookings,
+  canViewOrganisationLoad,
+  roleLabels,
+} from "@/lib/auth/permissions";
 
 export default async function HomePage() {
   const account = await getDemoSession();
@@ -10,6 +16,9 @@ export default async function HomePage() {
 
   const config = await getAirtableConfigStatus();
   const roles = roleLabels(account);
+  const airtableOverview = canViewAllBookings(account) && config.connected
+    ? await getAirtableReadOverview().catch(() => null)
+    : null;
 
   return (
     <AppShell account={account}>
@@ -18,7 +27,7 @@ export default async function HomePage() {
           <p className="eyebrow">Good to have you here</p>
           <h1>Resourcing overview</h1>
           <p className="dashboard-lede">
-            This is the foundation of the demo workspace. The next step connects this view to live Airtable records.
+            A shared view of current people, projects, bookings and capacity.
           </p>
         </div>
         <div className="current-role-card">
@@ -38,6 +47,42 @@ export default async function HomePage() {
         </div>
         <span className="notice-tag">Foundation check</span>
       </section>
+
+      {canViewAllBookings(account) && config.connected && (
+        <section className="data-overview" aria-labelledby="data-overview-title">
+          <div className="data-overview-heading">
+            <div>
+              <p className="eyebrow">Read-only Airtable data</p>
+              <h2 id="data-overview-title">Current base snapshot</h2>
+            </div>
+            <span className="notice-tag">Admin view</span>
+          </div>
+          {airtableOverview ? (
+            <>
+              <dl className="data-count-grid">
+                {airtableOverview.tableCounts.map(({ label, count }) => (
+                  <div className="data-count-card" key={label}>
+                    <dt>{label}</dt>
+                    <dd>{count}</dd>
+                    <span>records</span>
+                  </div>
+                ))}
+              </dl>
+              <p className="data-freshness">
+                People last seen in an HR file: {airtableOverview.peopleLastSeenInHrFile
+                  ? new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(
+                      new Date(airtableOverview.peopleLastSeenInHrFile),
+                    )
+                  : "No HR file date recorded"}
+              </p>
+            </>
+          ) : (
+            <p className="data-freshness" role="status">
+              Airtable is reachable, but records could not be read. Check that the token includes record read access.
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="overview-grid" aria-label="Resourcing summary">
         <article className="overview-card" id="bookings">
