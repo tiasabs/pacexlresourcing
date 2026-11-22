@@ -135,7 +135,6 @@ a:focus-visible {
   white-space: nowrap;
 }
 
-.motion-toggle,
 .text-button {
   border: 1px solid var(--color-border);
   border-radius: 999px;
@@ -146,7 +145,6 @@ a:focus-visible {
   transition: background-color 160ms ease, transform 160ms ease;
 }
 
-.motion-toggle:hover,
 .text-button:hover {
   background: var(--color-surface-soft);
   transform: translateY(-1px);
@@ -592,14 +590,8 @@ h2 {
   color: var(--color-muted);
 }
 
-html[data-motion="reduced"] * {
-  scroll-behavior: auto !important;
-  animation-duration: 0.01ms !important;
-  transition-duration: 0.01ms !important;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  html:not([data-motion="full"]) * {
+  html * {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
@@ -639,7 +631,6 @@ html[data-motion="reduced"] * {
     display: none;
   }
 
-  .motion-toggle,
   .text-button {
     padding: 0.45rem 0.65rem;
     font-size: 0.71rem;

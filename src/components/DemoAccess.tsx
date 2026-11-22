@@ -7,7 +7,7 @@ import type { DemoAccount } from "@/lib/demo/accounts";
 const symbols: Record<string, string> = {
   individual: "01",
   "line-manager": "02",
-  "team-lead": "03",
+  "project-lead": "03",
   admin: "04",
   "c-suite": "05",
   hr: "06",
