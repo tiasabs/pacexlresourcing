@@ -18,7 +18,6 @@ export default async function AccessPage() {
 
       <section className="access-hero" aria-labelledby="page-title">
         <div className="hero-copy">
-          <p className="eyebrow">Portfolio Management Office</p>
           <h1 id="page-title">Choose an account</h1>
           <p className="hero-intro">
             Select a role to explore resourcing information from that perspective.
@@ -30,7 +29,7 @@ export default async function AccessPage() {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Demo access</p>
-            <h2 id="choose-account-title">Choose an account</h2>
+            <h2 id="choose-account-title">Demo accounts</h2>
           </div>
           <span className="section-count">06 personas</span>
         </div>
