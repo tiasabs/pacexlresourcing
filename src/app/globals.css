@@ -90,6 +90,10 @@ a:focus-visible {
   border-bottom: 1px solid var(--color-subtle-border);
 }
 
+.access-header {
+  min-height: 4.25rem;
+}
+
 .wordmark {
   display: inline-flex;
   align-items: center;
@@ -151,16 +155,15 @@ a:focus-visible {
 }
 
 .access-hero {
-  min-height: 20.5rem;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 2rem;
-  padding: clamp(3.3rem, 8vw, 6.2rem) 0 3.2rem;
+  padding: 1.8rem 0 1.25rem;
 }
 
 .hero-copy {
-  max-width: 54rem;
+  max-width: 100%;
 }
 
 .eyebrow {
@@ -186,18 +189,19 @@ h2 {
 }
 
 .hero-copy h1 {
-  max-width: 12ch;
-  margin-bottom: 1.25rem;
-  font-size: clamp(3rem, 7vw, 6.8rem);
+  max-width: none;
+  margin-bottom: 0.25rem;
+  font-size: clamp(2.4rem, 4.2vw, 3.5rem);
   font-weight: 550;
-  line-height: 0.94;
+  line-height: 1.05;
 }
 
 .hero-intro {
-  max-width: 35rem;
+  max-width: none;
   margin: 0;
   color: var(--color-muted);
-  font-size: clamp(1rem, 1.45vw, 1.2rem);
+  font-size: 0.98rem;
+  line-height: 1.4;
 }
 
 .hero-aside {
@@ -221,7 +225,7 @@ h2 {
 
 .access-panel {
   margin: 0 0 2rem;
-  padding: clamp(1.4rem, 3vw, 2.5rem);
+  padding: clamp(1.1rem, 2vw, 1.5rem);
   border: 1px solid var(--color-subtle-border);
   border-radius: var(--radius-card);
   background: var(--color-glass);
@@ -234,12 +238,12 @@ h2 {
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1.4rem;
+  margin-bottom: 1rem;
 }
 
 .section-heading h2 {
   margin: 0;
-  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-size: clamp(1.6rem, 2.2vw, 2rem);
   font-weight: 550;
   line-height: 1;
 }
@@ -637,10 +641,7 @@ h2 {
   }
 
   .access-hero {
-    min-height: auto;
-    align-items: flex-start;
-    flex-direction: column;
-    padding: 3.2rem 0 2.2rem;
+    padding: 1.5rem 0 1rem;
   }
 
   .hero-aside {
@@ -648,7 +649,11 @@ h2 {
   }
 
   .hero-copy h1 {
-    font-size: clamp(2.75rem, 15vw, 4.8rem);
+    font-size: clamp(2.15rem, 9vw, 3rem);
+  }
+
+  .hero-intro {
+    font-size: 0.9rem;
   }
 
   .access-panel {
