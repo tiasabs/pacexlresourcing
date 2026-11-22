@@ -21,7 +21,7 @@ The six demo personas are defined in `src/lib/demo/accounts.ts`. Admin, HR, and 
 
 ## HR snapshot workflow
 
-HR and Admin can open `/hr` to review existing People and Planned Leave records, download CSV templates, preview full snapshots, and commit changes. The templates are in `public/templates` and require exact headers. Use UTF-8 CSV, `YYYY-MM-DD` dates, stable Employee IDs and Leave IDs, and decimal Leave Days such as `0.5`.
+HR and Admin can open `/hr` to review existing People and Planned Leave records, download CSV templates, preview full snapshots, and commit changes. The templates are in `public/templates` and require exact headers. Use UTF-8 CSV, `DD-MM-YYYY` dates, stable Employee IDs and Leave IDs, and decimal Leave Days such as `0.5`.
 
 Imports add new records and update changed records only. Missing people are marked `Left organisation`; missing leave is marked `Cancelled`, or `Taken` when its end date is in the past. Records are never deleted. A missing-people rate at or above the configured threshold displays a warning and still permits commit. File contents are held in memory only for the preview and are not retained. Import Log records the file name, actor label, counts, status, and timestamps.
 
