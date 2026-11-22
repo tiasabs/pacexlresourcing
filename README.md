@@ -1,6 +1,6 @@
 # Resourcing Radar
 
-A local case-study prototype for a fictional charity PMO. The first slice provides a six-persona demo entry page, role-aware workspace shell, and a server-side Airtable configuration check.
+A local resourcing app for a charity PMO. The first slice provides a six-persona demo entry page, role-aware workspace shell, and a server-side Airtable configuration check.
 
 ## Run locally
 
@@ -17,7 +17,7 @@ The base and existing table/field IDs are kept in `src/config/airtable.ts`. The 
 
 The current connected base has People, Projects and Bids, Planned Leave, Resource Bookings, Public Holidays, and Settings. App Accounts, Effort Bands, Person Weeks, and Import Log still need to be added and their IDs entered in the config file. The Settings table currently uses two key/value rows; its agreed typed single-row shape has not yet been applied.
 
-The demo personas are currently defined in `src/lib/demo/accounts.ts`. When App Accounts is ready, replace those local presets with records linked to People. Admin, HR, and C-Suite are assigned roles; Individual is implicit; Line Manager and Team Lead are derived from people and project relationships.
+The demo personas are currently defined in `src/lib/demo/accounts.ts`. When App Accounts is ready, replace those local presets with records linked to People. Admin, HR, and C-Suite are assigned roles; Individual is implicit; Line Manager and Project Lead are derived from people and project relationships.
 
 ## Foundation endpoints
 

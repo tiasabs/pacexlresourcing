@@ -75,7 +75,7 @@ export default async function HomePage() {
             <span className="eyebrow">Your projects</span>
             <h2>Staffing requests</h2>
             <p>Project Leads will see detailed bookings for their own projects and limited availability elsewhere.</p>
-            <span className="card-footnote">Visible to Team Lead</span>
+            <span className="card-footnote">Visible to Project Lead</span>
           </article>
         )}
       </section>

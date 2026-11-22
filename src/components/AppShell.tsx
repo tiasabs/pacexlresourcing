@@ -5,7 +5,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { DemoAccount } from "@/lib/demo/accounts";
 import { canRunPeopleRefresh, canViewOrganisationLoad, roleLabels } from "@/lib/auth/permissions";
-import { MotionToggle } from "@/components/MotionToggle";
 
 export function AppShell({
   account,
@@ -39,7 +38,6 @@ export function AppShell({
         </Link>
         <div className="topbar-actions">
           <span className="demo-pill">Demo</span>
-          <MotionToggle />
           <button className="text-button" onClick={switchAccount} type="button">
             Switch account
           </button>
