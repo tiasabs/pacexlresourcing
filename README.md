@@ -1,6 +1,6 @@
 # Resourcing Radar
 
-A local resourcing app for a charity PMO. The first slice provides a six-persona demo entry page, role-aware workspace shell, and a server-side Airtable configuration check.
+A local resourcing app for a charity PMO. The first slice provides a six-persona demo entry page, role-aware workspace shell, and a server-side Airtable read-only base snapshot for Admin.
 
 ## Run locally
 
@@ -23,6 +23,8 @@ The demo personas are currently defined in `src/lib/demo/accounts.ts`. When App 
 
 - `POST /api/demo-session` sets the selected demo persona in a signed, HTTP-only cookie.
 - `DELETE /api/demo-session` returns to persona selection.
-- `GET /api/config-check` checks whether the server has an Airtable token and whether planned table IDs are configured.
+- `GET /api/config-check` checks whether the server can reach Airtable and reports planned table IDs that still need configuration.
+
+The Admin overview reads record counts and People HR-file dates from the six existing tables. Airtable requests run server-side using table and field IDs; the token is never sent to the browser. Reads are paginated, and the app writes no Airtable data in this phase.
 
 The demo session uses an ephemeral signed cookie; there is no session database. The local development secret fallback is only for this fictional local demo. Configure `DEMO_SESSION_SECRET` before running in any deployed environment.
