@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import type { DemoAccount } from "@/lib/demo/accounts";
-import { canRunPeopleRefresh, canViewOrganisationLoad, roleLabels } from "@/lib/auth/permissions";
+import { canRunPeopleRefresh, roleLabels } from "@/lib/auth/permissions";
 
 export function AppShell({
   account,
@@ -17,10 +17,6 @@ export function AppShell({
   const [switchError, setSwitchError] = useState("");
   const navItems = [
     { label: "Overview", href: "/home", visible: true },
-    { label: "My bookings", href: "/home#bookings", visible: true },
-    { label: "Team load", href: "/home#team", visible: account.derivedRoles.includes("line_manager") },
-    { label: "My projects", href: "/home#projects", visible: account.derivedRoles.includes("project_lead") },
-    { label: "Leadership", href: "/home#organisation", visible: canViewOrganisationLoad(account) },
     { label: "People and leave", href: "/hr", visible: canRunPeopleRefresh(account) },
   ].filter((item) => item.visible);
 
