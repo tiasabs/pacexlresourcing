@@ -190,7 +190,7 @@ async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Reco
   return preview;
 }
 
-function peopleFields(row: Record<string, unknown>, people: Map<string, AirtableRecord>) {
+function peopleFields(row: Record<string, unknown>, people: Map<string, AirtableRecord>): Record<string, unknown> {
   const p = airtable.fields.people;
   const managerId = String(row["Line Manager Employee ID"] ?? "").trim();
   const managerRecord = managerId ? people.get(managerId) : undefined;
@@ -205,7 +205,7 @@ function peopleFields(row: Record<string, unknown>, people: Map<string, Airtable
   };
 }
 
-function leaveFields(row: Record<string, unknown>, people: AirtableRecord[], employeeIdField: string) {
+function leaveFields(row: Record<string, unknown>, people: AirtableRecord[], employeeIdField: string): Record<string, unknown> {
   const l = airtable.fields.plannedLeave;
   const person = people.find((candidate) => stringVal(candidate, employeeIdField) === row["Employee ID Number"]);
   const past = String(row["End Date"]) < new Date().toISOString().slice(0, 10);
