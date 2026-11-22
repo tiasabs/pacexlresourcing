@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { DemoAccount } from "@/lib/demo/accounts";
 import { canRunPeopleRefresh, canViewOrganisationLoad, roleLabels } from "@/lib/auth/permissions";
@@ -13,7 +13,8 @@ export function AppShell({
   account: DemoAccount;
   children: ReactNode;
 }) {
-  const router = useRouter();
+  const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState("");
   const navItems = [
     { label: "Overview", href: "/home", visible: true },
     { label: "My bookings", href: "/home#bookings", visible: true },
@@ -24,9 +25,17 @@ export function AppShell({
   ].filter((item) => item.visible);
 
   async function switchAccount() {
-    await fetch("/api/demo-session", { method: "DELETE" });
-    router.push("/");
-    router.refresh();
+    if (switching) return;
+    setSwitching(true);
+    setSwitchError("");
+    try {
+      const response = await fetch("/api/demo-session", { method: "DELETE", cache: "no-store" });
+      if (!response.ok) throw new Error("The demo session could not be cleared.");
+      window.location.replace("/");
+    } catch {
+      setSwitching(false);
+      setSwitchError("We couldn't switch accounts. Please try again.");
+    }
   }
 
   return (
@@ -38,11 +47,12 @@ export function AppShell({
         </Link>
         <div className="topbar-actions">
           <span className="demo-pill">Demo</span>
-          <button className="text-button" onClick={switchAccount} type="button">
-            Switch account
+          <button className="text-button" disabled={switching} onClick={switchAccount} type="button">
+            {switching ? "Switching…" : "Switch account"}
           </button>
         </div>
       </header>
+      {switchError && <p className="switch-error" role="alert">{switchError}</p>}
       <div className="app-body">
         <aside className="sidebar" aria-label="Main navigation">
           <div className="sidebar-label">Workspace</div>

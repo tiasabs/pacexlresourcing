@@ -33,7 +33,8 @@ export function verifyDemoSessionToken(token: string) {
   const account = getDemoAccount(accountId ?? "");
 
   if (!account || !Number.isFinite(issuedAt) || !providedSignature) return null;
-  if (Date.now() / 1000 - issuedAt > maxAgeSeconds) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (issuedAt > now + 60 || now - issuedAt > maxAgeSeconds) return null;
 
   const expected = Buffer.from(sign(accountId, issuedAt));
   const provided = Buffer.from(providedSignature);
@@ -63,5 +64,12 @@ export async function setDemoSession(accountId: string) {
 }
 
 export async function clearDemoSession() {
-  (await cookies()).delete(cookieName);
+  (await cookies()).set(cookieName, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+    expires: new Date(0),
+  });
 }
