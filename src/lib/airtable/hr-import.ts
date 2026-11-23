@@ -20,6 +20,7 @@ export type ImportPreview = {
   missingWarning: boolean;
   warnings: string[];
   issues: ImportIssue[];
+  changes: Array<{ category: "New" | "Updated" | "Marked left" | "Cancelled"; label: string; details: string }>;
 };
 
 type PendingImport = {
@@ -237,6 +238,15 @@ function parseRows(csv: string, kind: ImportKind) {
 const val = (record: AirtableRecord, fieldId: string) => record.fields[fieldId];
 const stringVal = (record: AirtableRecord, fieldId: string) => typeof val(record, fieldId) === "string" ? val(record, fieldId) as string : "";
 const comparable = (value: unknown) => JSON.stringify(value ?? null);
+const shown = (value: unknown, recordNames?: Map<string, string>) => {
+  if (Array.isArray(value)) return value.map((item) => {
+    if (typeof item === "string") return recordNames?.get(item) ?? item;
+    if (item && typeof item === "object" && "name" in item) return String(item.name);
+    return String(item ?? "");
+  }).filter(Boolean).join(", ") || "—";
+  if (value && typeof value === "object" && "name" in value) return String(value.name);
+  return value === null || value === undefined || value === "" ? "—" : String(value);
+};
 
 async function getMassMissingGuard() {
   const settings = airtable.fields.settings;
@@ -249,9 +259,18 @@ async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Reco
   const f = airtable.fields;
   let added = 0, updated = 0, unchanged = 0, markedInactive = 0, markedCancelled = 0;
   let missingPercentage = 0, missingWarning = false;
+  const changes: ImportPreview["changes"] = [];
   if (kind === "people") {
     const people = await listAirtableRecords("people", Object.values(f.people));
     const byEmployeeId = new Map(people.map((person) => [stringVal(person, f.people.employeeId), person]));
+    const personNames = new Map(people.map((person) => [person.id, stringVal(person, f.people.fullName) || stringVal(person, f.people.employeeId)]));
+    const labels: Record<string, string> = {
+      [f.people.firstName]: "First name", [f.people.middleName]: "Middle name", [f.people.lastName]: "Last name",
+      [f.people.workEmail]: "Work email", [f.people.roleName]: "Role", [f.people.roleLevel]: "Role level",
+      [f.people.team]: "Team", [f.people.region]: "Region", [f.people.status]: "Status",
+      [f.people.contractedHours]: "Weekly hours", [f.people.workingDaysPerWeek]: "Working days",
+      [f.people.lineManager]: "Line manager", [f.people.startDate]: "Start date", [f.people.endDate]: "End date",
+    };
     const incoming = new Set(rows.map((row) => String(row["Employee ID Number"])));
     for (const row of rows) {
       const existing = byEmployeeId.get(String(row["Employee ID Number"]));
@@ -259,6 +278,8 @@ async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Reco
         if (row._invalidTeam) issues.push({ row: Number(row._row), message: "Map the team to one of the configured teams before creating this person." });
         if (row._invalidRegion) issues.push({ row: Number(row._row), message: "Map the region to England, Scotland, Wales, Northern Ireland, Ireland, or Other before creating this person." });
         if (row._invalidStatus) issues.push({ row: Number(row._row), message: "Map the employment status to Active, On long leave, or Left organisation before creating this person." });
+        const name = `${String(row["First Name"] ?? "")} ${String(row["Last Name"] ?? "")}`.trim() || String(row["Employee ID Number"]);
+        changes.push({ category: "New", label: name, details: `Employee ${String(row["Employee ID Number"])} will be added.` });
       }
       const managerId = String(row["Line Manager Employee ID"] ?? "").trim();
       if (managerId && !incoming.has(managerId) && !byEmployeeId.has(managerId)) {
@@ -284,12 +305,18 @@ async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Reco
         continue;
       }
       const fields = peopleFields(row, byEmployeeId);
-      const changed = Object.entries(fields).some(([id, value]) => comparable(val(existing, id)) !== comparable(value));
-      if (changed) updated++; else unchanged++;
+      const changedFields = Object.entries(fields).filter(([id, value]) => id !== f.people.lastSeenInHRFile && comparable(val(existing, id)) !== comparable(value));
+      if (changedFields.length) {
+        updated++;
+        const details = changedFields.slice(0, 3).map(([id, value]) => `${labels[id] ?? "Field"}: ${shown(val(existing, id), personNames)} → ${shown(value, personNames)}`);
+        if (changedFields.length > 3) details.push(`and ${changedFields.length - 3} more change${changedFields.length - 3 === 1 ? "" : "s"}`);
+        changes.push({ category: "Updated", label: stringVal(existing, f.people.fullName) || String(row["Employee ID Number"]), details: details.join("; ") });
+      } else unchanged++;
     }
     const active = people.filter((person) => val(person, f.people.status) === "Active");
     const missing = active.filter((person) => !incoming.has(stringVal(person, f.people.employeeId)));
     markedInactive = missing.length;
+    for (const person of missing) changes.push({ category: "Marked left", label: personNames.get(person.id) || stringVal(person, f.people.employeeId), details: `Employee ${stringVal(person, f.people.employeeId)} is missing from the full snapshot and will be marked Left organisation.` });
     missingPercentage = active.length ? missing.length / active.length : 0;
     missingWarning = missingPercentage >= await getMassMissingGuard();
   } else {
@@ -298,6 +325,13 @@ async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Reco
       listAirtableRecords("people", [f.people.employeeId]),
     ]);
     const byLeaveId = new Map(leaves.map((leave) => [stringVal(leave, f.plannedLeave.leaveId), leave]));
+    const personNames = new Map(people.map((person) => [person.id, stringVal(person, f.people.employeeId)]));
+    const peopleByEmployeeId = new Map(people.map((person) => [stringVal(person, f.people.employeeId), person.id]));
+    const labels: Record<string, string> = {
+      [f.plannedLeave.person]: "Employee", [f.plannedLeave.title]: "Title", [f.plannedLeave.type]: "Type",
+      [f.plannedLeave.status]: "Status", [f.plannedLeave.startDate]: "Start date", [f.plannedLeave.endDate]: "End date",
+      [f.plannedLeave.leaveDays]: "Days",
+    };
     const personIds = new Set(people.map((person) => stringVal(person, f.people.employeeId)));
     for (const row of rows) {
       if (!personIds.has(String(row["Employee ID Number"]))) issues.push({ row: Number(row._row), message: `Unknown Employee ID Number: ${row["Employee ID Number"]}.` });
@@ -306,17 +340,28 @@ async function buildPreview(kind: ImportKind, fileName: string, rows: Array<Reco
         for (const field of ["Type", "Status", "Start Date", "End Date", "Leave Days"]) {
           if (row[field] === null || row[field] === undefined || row[field] === "") issues.push({ row: Number(row._row), message: `${field} is needed to create a new Planned Leave record.` });
         }
+        changes.push({ category: "New", label: String(row.Title || row["Leave ID"]), details: `Leave ${String(row["Leave ID"])} for employee ${String(row["Employee ID Number"])} will be added.` });
         added++;
         continue;
       }
       const fields = leaveFields(row, people, f.people.employeeId);
-      const changed = Object.entries(fields).some(([id, value]) => comparable(val(existing, id)) !== comparable(value));
-      if (changed) updated++; else unchanged++;
+      const changedFields = Object.entries(fields).filter(([id, value]) => comparable(val(existing, id)) !== comparable(value));
+      if (changedFields.length) {
+        updated++;
+        const details = changedFields.slice(0, 3).map(([id, value]) => {
+          if (id === f.plannedLeave.person) value = [peopleByEmployeeId.get(String(row["Employee ID Number"])) ?? ""];
+          return `${labels[id] ?? "Field"}: ${shown(val(existing, id), personNames)} → ${shown(value, personNames)}`;
+        });
+        if (changedFields.length > 3) details.push(`and ${changedFields.length - 3} more change${changedFields.length - 3 === 1 ? "" : "s"}`);
+        changes.push({ category: "Updated", label: String(row.Title || row["Leave ID"]), details: details.join("; ") });
+      } else unchanged++;
     }
     const incoming = new Set(rows.map((row) => String(row["Leave ID"])));
-    markedCancelled = leaves.filter((leave) => !incoming.has(stringVal(leave, f.plannedLeave.leaveId)) && val(leave, f.plannedLeave.hrSyncStatus) !== "Cancelled" && val(leave, f.plannedLeave.hrSyncStatus) !== "Taken").length;
+    const missingLeaves = leaves.filter((leave) => !incoming.has(stringVal(leave, f.plannedLeave.leaveId)) && val(leave, f.plannedLeave.hrSyncStatus) !== "Cancelled" && val(leave, f.plannedLeave.hrSyncStatus) !== "Taken");
+    markedCancelled = missingLeaves.length;
+    for (const leave of missingLeaves) changes.push({ category: "Cancelled", label: stringVal(leave, f.plannedLeave.title) || stringVal(leave, f.plannedLeave.leaveId), details: `Leave ${stringVal(leave, f.plannedLeave.leaveId)} is missing from the full snapshot and will be marked ${String(val(leave, f.plannedLeave.endDate) ?? "") < new Date().toISOString().slice(0, 10) ? "Taken" : "Cancelled"}.` });
   }
-  const preview: ImportPreview = { previewId: randomUUID(), kind, fileName, rowsReceived: rows.length, added, updated, unchanged, markedInactive, markedCancelled, missingPercentage, missingWarning, warnings: Array.from(new Set(warnings)), issues, };
+  const preview: ImportPreview = { previewId: randomUUID(), kind, fileName, rowsReceived: rows.length, added, updated, unchanged, markedInactive, markedCancelled, missingPercentage, missingWarning, warnings: Array.from(new Set(warnings)), issues, changes, };
   pending.set(preview.previewId, { kind, fileName, rows, preview, uploadedBy });
   return preview;
 }
@@ -325,7 +370,7 @@ function peopleFields(row: Record<string, unknown>, people: Map<string, Airtable
   const p = airtable.fields.people;
   const managerId = String(row["Line Manager Employee ID"] ?? "").trim();
   const managerRecord = managerId ? people.get(managerId) : undefined;
-  const fields: Record<string, unknown> = { [p.employeeId]: row["Employee ID Number"], [p.lastSeenInHRFile]: new Date().toISOString().slice(0, 10) };
+  const fields: Record<string, unknown> = { [p.employeeId]: row["Employee ID Number"] };
   const assignIfProvided = (fieldId: string, label: string, transform?: (value: unknown) => unknown) => {
     const value = row[label];
     if (value === null || value === undefined || value === "") return;
@@ -388,10 +433,10 @@ export async function commitHrImport(previewId: string) {
     for (const row of task.rows) {
       const fields = peopleFields(row, byEmployeeId);
       const existing = byEmployeeId.get(String(row["Employee ID Number"]));
-      if (!existing) { creates.push({ fields }); continue; }
+      if (!existing) { creates.push({ fields: { ...fields, [f.people.lastSeenInHRFile]: now.slice(0, 10) } }); continue; }
       const changedIds = Object.keys(fields).filter((id) => comparable(val(existing, id)) !== comparable(fields[id]));
       if (!changedIds.length) { unchanged++; continue; }
-      updates.push({ id: existing.id, fields: Object.fromEntries(changedIds.map((id) => [id, fields[id]])) });
+      updates.push({ id: existing.id, fields: { ...Object.fromEntries(changedIds.map((id) => [id, fields[id]])), [f.people.lastSeenInHRFile]: now.slice(0, 10) } });
     }
     const createdRecords = await createAirtableRecords("people", creates);
     const allPeople = new Map(people.map((person) => [stringVal(person, f.people.employeeId), person]));

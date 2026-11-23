@@ -11,8 +11,17 @@ export type BookingRow = {
   startDate: string; endDate: string; hoursPerWeek: number; confirmedOn: string; clashFlagged: boolean; clashNote: string;
   clashWeeks: Array<{ weekStart: string; weekLabel: string; bookedHours: number; capacityHours: number; ratio: number; projectNames: string[] }>;
   requestStatus: string; requestNote: string; leadName: string;
+  milestoneId: string; milestoneName: string; personConfirmationStatus: string;
 };
 export type TeamRosterRow = { personId: string; name: string; team: string; bookingCount: number; flaggedProjects: string[]; hasCapacityAlert: boolean };
+export type MilestoneCandidate = { personId: string; name: string; availableHoursPerWeek: number };
+export type MilestoneRow = {
+  id: string; name: string; projectId: string; plannedStartDate: string; plannedEndDate: string;
+  expectedStartDate: string; expectedEndDate: string; hoursPerWeekRequired: number; teamRequested: string;
+  status: string; description: string; firstBookingDate: string; allocatedHoursPerWeek: number;
+  remainingHoursPerWeek: number; candidates: MilestoneCandidate[]; noAvailablePeople: boolean;
+  bookings: BookingRow[];
+};
 
 const get = (record: AirtableRecord, fieldId: string) => record.fields[fieldId];
 const str = (value: unknown) => typeof value === "string" ? value : "";
@@ -35,12 +44,13 @@ function weekCapacity(person: Person, weekStart: string, leaves: AirtableRecord[
   const f = airtable.fields;
   const week = new Date(`${weekStart}T00:00:00Z`);
   const weekEnd = new Date(week); weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+  const appliesToPerson = (row: AirtableRecord) => selected(get(row, f.publicHolidays.region)).split(",").map((region) => region.trim()).includes(person.region);
   const holidayDates = new Set(holidays
-    .filter((row) => selected(get(row, f.publicHolidays.region)) === person.region)
+    .filter(appliesToPerson)
     .map((row) => str(get(row, f.publicHolidays.date)))
     .filter((date) => date >= iso(week) && date <= iso(weekEnd) && weekday(new Date(`${date}T00:00:00Z`))));
   const allPersonHolidayDates = new Set(holidays
-    .filter((row) => selected(get(row, f.publicHolidays.region)) === person.region)
+    .filter(appliesToPerson)
     .map((row) => str(get(row, f.publicHolidays.date))));
   const leaveHours = leaves
     .filter((row) => links(get(row, f.plannedLeave.person)).includes(person.id) && selected(get(row, f.plannedLeave.status)) === "Approved")
@@ -73,7 +83,7 @@ function withWeeklyCapacityFlags(rows: BookingRow[], people: Person[], leaves: A
   const totals = new Map<string, number>();
   const projectsByWeek = new Map<string, Map<string, string>>();
   for (const row of rows) {
-    if (row.requestStatus === "Declined by lead") continue;
+    if (isDeclinedBooking(row)) continue;
     for (const weekStart of bookingWeeks(row.startDate, row.endDate)) {
       const key = `${row.personId}|${weekStart}`;
       totals.set(key, (totals.get(key) ?? 0) + row.hoursPerWeek);
@@ -94,7 +104,7 @@ function withWeeklyCapacityFlags(rows: BookingRow[], people: Person[], leaves: A
     capacities.set(key, { bookedHours, capacityHours, ratio, weekLabel, projectNames: Array.from(projectsByWeek.get(key)?.values() ?? []) });
   }
   return rows.map((row) => {
-    const clashWeeks = row.requestStatus === "Declined by lead" ? [] : bookingWeeks(row.startDate, row.endDate).flatMap((weekStart) => {
+    const clashWeeks = isDeclinedBooking(row) ? [] : bookingWeeks(row.startDate, row.endDate).flatMap((weekStart) => {
       const capacity = capacities.get(`${row.personId}|${weekStart}`);
       return capacity && capacity.ratio > redThreshold ? [{ weekStart, ...capacity }] : [];
     });
@@ -123,21 +133,24 @@ async function getProjects(): Promise<Project[]> {
 
 async function getBookingRows(): Promise<BookingRow[]> {
   const f = airtable.fields;
-  const [rows, people, projects, leaves, holidays, settings] = await Promise.all([
+  const [rows, people, projects, leaves, holidays, settings, milestoneRecords] = await Promise.all([
     listAirtableRecords("resourceBookings", Object.values(f.resourceBookings)),
     getPeople(),
     getProjects(),
     listAirtableRecords("plannedLeave", [f.plannedLeave.person, f.plannedLeave.status, f.plannedLeave.startDate, f.plannedLeave.endDate, f.plannedLeave.leaveDays]),
     listAirtableRecords("publicHolidays", [f.publicHolidays.date, f.publicHolidays.region]),
     listAirtableRecords("settings", [f.settings.settingName, f.settings.redPercent]),
+    listAirtableRecords("projectMilestones", [f.projectMilestones.name]),
   ]);
   const applicationSettings = settings.find((row) => get(row, f.settings.settingName) === "Application Settings");
   const redThreshold = num(applicationSettings && get(applicationSettings, f.settings.redPercent)) || 1.1;
   const peopleById = new Map(people.map((person) => [person.id, person]));
   const projectsById = new Map(projects.map((project) => [project.id, project]));
+  const milestonesById = new Map(milestoneRecords.map((milestone) => [milestone.id, str(get(milestone, f.projectMilestones.name))]));
   const bookings = rows.map((record) => {
     const personId = links(get(record, f.resourceBookings.person))[0] ?? "";
     const projectId = links(get(record, f.resourceBookings.project))[0] ?? "";
+    const milestoneId = links(get(record, f.resourceBookings.milestone))[0] ?? "";
     const project = projectsById.get(projectId);
     return {
       id: record.id, bookingId: str(get(record, f.resourceBookings.bookingId)), label: str(get(record, f.resourceBookings.label)),
@@ -147,6 +160,7 @@ async function getBookingRows(): Promise<BookingRow[]> {
       confirmedOn: str(get(record, f.resourceBookings.confirmedOn)), clashFlagged: false,
       clashNote: "", clashWeeks: [], requestStatus: selected(get(record, f.resourceBookings.requestStatus)),
       requestNote: str(get(record, f.resourceBookings.requestNote)), leadName: project?.leadIds.map((id) => peopleById.get(id)?.name).filter(Boolean).join(", ") ?? "",
+      milestoneId, milestoneName: milestonesById.get(milestoneId) ?? "", personConfirmationStatus: selected(get(record, f.resourceBookings.personConfirmationStatus)),
     };
   }).sort((a, b) => a.startDate.localeCompare(b.startDate) || a.projectName.localeCompare(b.projectName));
   return withWeeklyCapacityFlags(bookings, people, leaves, holidays, redThreshold);
@@ -188,7 +202,7 @@ export async function getTeamRosterRows(account: DemoAccount): Promise<TeamRoste
     ? people.filter((person) => person.status !== "Left organisation")
     : people.filter((person) => person.status !== "Left organisation" && (person.id === account.personId || person.managerIds.includes(account.personId)));
   return visiblePeople.map((person) => {
-    const personBookings = bookings.filter((booking) => booking.personId === person.id && booking.requestStatus !== "Declined by lead");
+    const personBookings = bookings.filter((booking) => booking.personId === person.id && !isDeclinedBooking(booking));
     const flaggedProjects = Array.from(new Map(personBookings.filter((booking) => booking.clashFlagged).map((booking) => [booking.projectId, booking.projectName])).values());
     return { personId: person.id, name: person.name, team: person.team, bookingCount: personBookings.length, flaggedProjects, hasCapacityAlert: flaggedProjects.length > 0 };
   }).sort((a, b) => Number(b.hasCapacityAlert) - Number(a.hasCapacityAlert) || a.name.localeCompare(b.name));
@@ -203,15 +217,200 @@ export async function getTeamMemberBookingRows(account: DemoAccount, personId: s
 }
 
 export async function getProjectBookingRows(account: DemoAccount) {
-  const [projects, rows] = await Promise.all([getProjects(), getBookingRows()]);
-  if (account.assignedRoles.includes("admin")) return { projects, bookings: rows };
+  const [projects, rows, milestoneRows] = await Promise.all([
+    getProjects(), getBookingRows(),
+    listAirtableRecords("projectMilestones", [airtable.fields.projectMilestones.name, airtable.fields.projectMilestones.project, airtable.fields.projectMilestones.status, airtable.fields.projectMilestones.hoursPerWeekRequired]),
+  ]);
+  const milestones = milestoneRows.map((row) => ({ id: row.id, name: str(get(row, airtable.fields.projectMilestones.name)), projectId: links(get(row, airtable.fields.projectMilestones.project))[0] ?? "", status: selected(get(row, airtable.fields.projectMilestones.status)), hoursPerWeekRequired: num(get(row, airtable.fields.projectMilestones.hoursPerWeekRequired)) }));
+  if (account.assignedRoles.includes("admin")) return { projects, bookings: rows, milestones };
   const ownedProjects = projects.filter((project) => project.leadIds.includes(account.personId));
   const projectIds = new Set(ownedProjects.map((project) => project.id));
-  return { projects: ownedProjects, bookings: rows.filter((row) => projectIds.has(row.projectId)) };
+  return { projects: ownedProjects, bookings: rows.filter((row) => projectIds.has(row.projectId)), milestones: milestones.filter((milestone) => projectIds.has(milestone.projectId)) };
 }
 
 export async function getProjectsForRequest() {
   return getProjects();
+}
+
+function isDeclinedBooking(row: BookingRow) {
+  return row.requestStatus === "Declined by lead" || row.personConfirmationStatus === "Declined";
+}
+
+function milestoneStatus(allocated: number, required: number) {
+  if (allocated >= required) return "Resourced";
+  return allocated > 0 ? "Partially resourced" : "Resourcing";
+}
+
+export async function createProjectMilestone(input: {
+  account: DemoAccount; projectId: string; name: string; plannedStartDate: string; plannedEndDate: string;
+  hoursPerWeekRequired: number; teamRequested: string; description: string;
+}) {
+  const [projects, people] = await Promise.all([getProjects(), getPeople()]);
+  const project = projects.find((item) => item.id === input.projectId);
+  if (!project || (!input.account.assignedRoles.includes("admin") && !project.leadIds.includes(input.account.personId))) throw new Error("You can only add milestones to a project you lead.");
+  if (!input.name.trim() || input.name.trim().length > 120) throw new Error("Enter a milestone name up to 120 characters.");
+  if (!isIsoDate(input.plannedStartDate) || !isIsoDate(input.plannedEndDate) || input.plannedEndDate < input.plannedStartDate) throw new Error("Enter valid planned dates; the end date must be on or after the start date.");
+  if (!Number.isFinite(input.hoursPerWeekRequired) || input.hoursPerWeekRequired <= 0 || input.hoursPerWeekRequired > 168) throw new Error("Weekly hours must be greater than zero and no more than 168.");
+  const availableTeams = new Set(people.flatMap((person) => person.team.split(",").map((team) => team.trim())).filter(Boolean));
+  if (!availableTeams.has(input.teamRequested)) throw new Error("Choose a team from the current People records.");
+  const f = airtable.fields.projectMilestones;
+  const records = await createAirtableRecords("projectMilestones", [{ fields: {
+    [f.name]: input.name.trim(), [f.project]: [project.id], [f.plannedStartDate]: input.plannedStartDate,
+    [f.plannedEndDate]: input.plannedEndDate, [f.expectedStartDate]: input.plannedStartDate,
+    [f.expectedEndDate]: input.plannedEndDate, [f.hoursPerWeekRequired]: input.hoursPerWeekRequired,
+    [f.teamRequested]: input.teamRequested, [f.status]: "Resourcing", [f.description]: input.description.trim(),
+  } }]);
+  return records[0]?.id;
+}
+
+export async function getMilestoneTeamChoices() {
+  const people = await getPeople();
+  return Array.from(new Set(people.filter((person) => person.status === "Active").flatMap((person) => person.team.split(",").map((team) => team.trim())).filter(Boolean))).sort();
+}
+
+export async function getProjectMilestoneRows(account: DemoAccount, projectId: string): Promise<MilestoneRow[] | null> {
+  const [projects, records, bookings, people, leaves, holidays] = await Promise.all([
+    getProjects(),
+    listAirtableRecords("projectMilestones", Object.values(airtable.fields.projectMilestones)),
+    getBookingRows(),
+    getPeople(),
+    listAirtableRecords("plannedLeave", [airtable.fields.plannedLeave.person, airtable.fields.plannedLeave.status, airtable.fields.plannedLeave.startDate, airtable.fields.plannedLeave.endDate, airtable.fields.plannedLeave.leaveDays]),
+    listAirtableRecords("publicHolidays", [airtable.fields.publicHolidays.date, airtable.fields.publicHolidays.region]),
+  ]);
+  const project = projects.find((item) => item.id === projectId);
+  if (!project || (!account.assignedRoles.includes("admin") && !project.leadIds.includes(account.personId))) return null;
+  const f = airtable.fields.projectMilestones;
+  const activeBookings = bookings.filter((row) => !isDeclinedBooking(row));
+  return records.filter((record) => links(get(record, f.project)).includes(projectId)).map((record) => {
+    const milestoneBookings = bookings.filter((row) => row.milestoneId === record.id);
+    const allocatedHoursPerWeek = activeBookings.filter((row) => row.milestoneId === record.id).reduce((sum, row) => sum + row.hoursPerWeek, 0);
+    const remainingHoursPerWeek = Math.max(0, num(get(record, f.hoursPerWeekRequired)) - allocatedHoursPerWeek);
+    const plannedStartDate = str(get(record, f.plannedStartDate)), plannedEndDate = str(get(record, f.plannedEndDate));
+    const weeks = bookingWeeks(plannedStartDate, plannedEndDate);
+    const teamRequested = selected(get(record, f.teamRequested));
+    const candidates = people.filter((person) => person.status === "Active" && person.team.split(",").map((team) => team.trim()).includes(teamRequested)).map((person) => {
+      const availableByWeek = weeks.map((weekStart) => {
+        const capacity = weekCapacity(person, weekStart, leaves, holidays).capacity;
+        const booked = activeBookings.filter((row) => row.personId === person.id && bookingWeeks(row.startDate, row.endDate).includes(weekStart)).reduce((sum, row) => sum + row.hoursPerWeek, 0);
+        return Math.max(0, capacity - booked);
+      });
+      return { personId: person.id, name: person.name, availableHoursPerWeek: availableByWeek.length ? Math.min(...availableByWeek) : 0 };
+    }).filter((person) => person.availableHoursPerWeek > 0).sort((a, b) => b.availableHoursPerWeek - a.availableHoursPerWeek || a.name.localeCompare(b.name));
+    return {
+      id: record.id, name: str(get(record, f.name)), projectId,
+      plannedStartDate, plannedEndDate, expectedStartDate: str(get(record, f.expectedStartDate)), expectedEndDate: str(get(record, f.expectedEndDate)),
+      hoursPerWeekRequired: num(get(record, f.hoursPerWeekRequired)), teamRequested,
+      status: selected(get(record, f.status)), description: str(get(record, f.description)),
+      firstBookingDate: str(get(record, f.firstBookingDate)), allocatedHoursPerWeek, remainingHoursPerWeek,
+      candidates, noAvailablePeople: candidates.length === 0, bookings: milestoneBookings,
+    };
+  }).sort((a, b) => a.plannedStartDate.localeCompare(b.plannedStartDate) || a.name.localeCompare(b.name));
+}
+
+export async function updateMilestoneDates(account: DemoAccount, milestoneId: string, input: { plannedStartDate?: string; plannedEndDate?: string; expectedStartDate?: string; expectedEndDate?: string }) {
+  const milestones = await listAirtableRecords("projectMilestones", Object.values(airtable.fields.projectMilestones));
+  const milestone = milestones.find((record) => record.id === milestoneId);
+  if (!milestone) throw new Error("This milestone could not be found.");
+  const f = airtable.fields.projectMilestones;
+  const projectId = links(get(milestone, f.project))[0] ?? "";
+  const project = (await getProjects()).find((item) => item.id === projectId);
+  if (!project || (!account.assignedRoles.includes("admin") && !project.leadIds.includes(account.personId))) throw new Error("You can only change milestones on a project you lead.");
+  const firstBookingDate = str(get(milestone, f.firstBookingDate));
+  if (firstBookingDate) {
+    if (!isIsoDate(input.expectedStartDate ?? "") || !isIsoDate(input.expectedEndDate ?? "") || input.expectedEndDate! < input.expectedStartDate!) throw new Error("After a booking, update the expected dates; expected end must be on or after expected start.");
+    await updateAirtableRecords("projectMilestones", [{ id: milestoneId, fields: { [f.expectedStartDate]: input.expectedStartDate, [f.expectedEndDate]: input.expectedEndDate } }]);
+    return;
+  }
+  if (!isIsoDate(input.plannedStartDate ?? "") || !isIsoDate(input.plannedEndDate ?? "") || input.plannedEndDate! < input.plannedStartDate!) throw new Error("Enter valid planned dates; end must be on or after start.");
+  await updateAirtableRecords("projectMilestones", [{ id: milestoneId, fields: {
+    [f.plannedStartDate]: input.plannedStartDate, [f.plannedEndDate]: input.plannedEndDate,
+    [f.expectedStartDate]: input.plannedStartDate, [f.expectedEndDate]: input.plannedEndDate,
+  } }]);
+  const bookingFields = airtable.fields.resourceBookings;
+  const pendingBookings = await listAirtableRecords("resourceBookings", [bookingFields.milestone, bookingFields.personConfirmationStatus]);
+  const pendingUpdates = pendingBookings.filter((booking) => links(get(booking, bookingFields.milestone)).includes(milestoneId) && selected(get(booking, bookingFields.personConfirmationStatus)) === "Awaiting response").map((booking) => ({
+    id: booking.id, fields: { [bookingFields.startDate]: input.plannedStartDate, [bookingFields.endDate]: input.plannedEndDate },
+  }));
+  await updateAirtableRecords("resourceBookings", pendingUpdates);
+  await syncBookingClashFlags();
+}
+
+export async function updateProjectMilestone(account: DemoAccount, milestoneId: string, input: { name: string; teamRequested: string; hoursPerWeekRequired: number; description: string }) {
+  const [milestones, people] = await Promise.all([
+    listAirtableRecords("projectMilestones", Object.values(airtable.fields.projectMilestones)), getPeople(),
+  ]);
+  const milestone = milestones.find((record) => record.id === milestoneId);
+  if (!milestone) throw new Error("This milestone could not be found.");
+  const mf = airtable.fields.projectMilestones;
+  const projectId = links(get(milestone, mf.project))[0] ?? "";
+  const project = (await getProjects()).find((item) => item.id === projectId);
+  if (!project || (!account.assignedRoles.includes("admin") && !project.leadIds.includes(account.personId))) throw new Error("You can only edit milestones on a project you lead.");
+  if (!input.name.trim() || input.name.trim().length > 120) throw new Error("Enter a milestone name up to 120 characters.");
+  if (!Number.isFinite(input.hoursPerWeekRequired) || input.hoursPerWeekRequired <= 0 || input.hoursPerWeekRequired > 168) throw new Error("Weekly hours must be greater than zero and no more than 168.");
+  const availableTeams = new Set(people.flatMap((person) => person.team.split(",").map((team) => team.trim())).filter(Boolean));
+  if (!availableTeams.has(input.teamRequested)) throw new Error("Choose a team from the current People records.");
+  const [bookings] = await Promise.all([getBookingRows()]);
+  const allocated = bookings.filter((row) => row.milestoneId === milestoneId && !isDeclinedBooking(row)).reduce((sum, row) => sum + row.hoursPerWeek, 0);
+  await updateAirtableRecords("projectMilestones", [{ id: milestoneId, fields: {
+    [mf.name]: input.name.trim(), [mf.teamRequested]: input.teamRequested,
+    [mf.hoursPerWeekRequired]: input.hoursPerWeekRequired, [mf.description]: input.description.trim(),
+    [mf.status]: milestoneStatus(allocated, input.hoursPerWeekRequired),
+  } }]);
+}
+
+export async function createMilestoneBooking(account: DemoAccount, milestoneId: string, personId: string, hoursPerWeek: number) {
+  const milestones = await listAirtableRecords("projectMilestones", Object.values(airtable.fields.projectMilestones));
+  const milestone = milestones.find((record) => record.id === milestoneId);
+  if (!milestone) throw new Error("This milestone could not be found.");
+  const projectId = links(get(milestone, airtable.fields.projectMilestones.project))[0] ?? "";
+  const [projects, people, milestonesForProject] = await Promise.all([getProjects(), getPeople(), getProjectMilestoneRows(account, projectId)]);
+  const project = projects.find((item) => item.id === projectId);
+  if (!project || (!account.assignedRoles.includes("admin") && !project.leadIds.includes(account.personId))) throw new Error("You can only book resources on a project you lead.");
+  const selectedMilestone = milestonesForProject?.find((item) => item.id === milestoneId);
+  if (!selectedMilestone) throw new Error("This milestone is outside your project scope.");
+  if (!Number.isFinite(hoursPerWeek) || hoursPerWeek <= 0 || hoursPerWeek > selectedMilestone.remainingHoursPerWeek) throw new Error("Choose weekly hours up to the milestone's remaining need.");
+  const candidate = selectedMilestone.candidates.find((person) => person.personId === personId);
+  if (!candidate || hoursPerWeek > candidate.availableHoursPerWeek) throw new Error("That person no longer has enough available capacity for this booking.");
+  const person = people.find((item) => item.id === personId);
+  if (!person) throw new Error("Choose a valid person.");
+  const f = airtable.fields.resourceBookings, mf = airtable.fields.projectMilestones;
+  const created = await createAirtableRecords("resourceBookings", [{ fields: {
+    [f.label]: selectedMilestone.name, [f.person]: [personId], [f.project]: [projectId], [f.milestone]: [milestoneId],
+    [f.requestedBy]: [account.personId], [f.source]: "Lead claimed", [f.startDate]: selectedMilestone.plannedStartDate,
+    [f.endDate]: selectedMilestone.plannedEndDate, [f.hoursPerWeek]: hoursPerWeek,
+    [f.personConfirmationStatus]: "Awaiting response", [f.clashFlagged]: false,
+  } }]);
+  const allocated = selectedMilestone.allocatedHoursPerWeek + hoursPerWeek;
+  await updateAirtableRecords("projectMilestones", [{ id: milestoneId, fields: {
+    [mf.status]: milestoneStatus(allocated, selectedMilestone.hoursPerWeekRequired),
+  } }]);
+  await syncBookingClashFlags();
+  return { bookingRecordId: created[0]?.id, personName: person.name };
+}
+
+export async function respondToMilestoneBooking(account: DemoAccount, bookingRecordId: string, confirm: boolean) {
+  const rows = await getBookingRows();
+  const booking = rows.find((row) => row.id === bookingRecordId);
+  if (!booking || booking.personId !== account.personId || booking.personConfirmationStatus !== "Awaiting response") throw new Error("This booking is no longer waiting for your response.");
+  const f = airtable.fields.resourceBookings;
+  await updateAirtableRecords("resourceBookings", [{ id: bookingRecordId, fields: {
+    [f.personConfirmationStatus]: confirm ? "Confirmed" : "Declined",
+    ...(confirm ? { [f.confirmedOn]: iso(new Date()) } : {}),
+  } }]);
+  if (booking.milestoneId) {
+    const milestones = await listAirtableRecords("projectMilestones", Object.values(airtable.fields.projectMilestones));
+    const milestone = milestones.find((record) => record.id === booking.milestoneId);
+    if (milestone) {
+    const active = (await getBookingRows()).filter((row) => row.milestoneId === booking.milestoneId && !isDeclinedBooking(row));
+      const allocated = active.reduce((sum, row) => sum + row.hoursPerWeek, 0);
+      const mf = airtable.fields.projectMilestones;
+      await updateAirtableRecords("projectMilestones", [{ id: booking.milestoneId, fields: {
+        [mf.status]: milestoneStatus(allocated, num(get(milestone, mf.hoursPerWeekRequired))),
+        ...(confirm && !str(get(milestone, mf.firstBookingDate)) ? { [mf.firstBookingDate]: iso(new Date()) } : {}),
+      } }]);
+    }
+  }
+  await syncBookingClashFlags();
 }
 
 export async function createBookingRequest(input: { account: DemoAccount; projectId: string; startDate: string; endDate: string; hoursPerWeek: number; note: string }) {
@@ -225,6 +424,7 @@ export async function createBookingRequest(input: { account: DemoAccount; projec
   const created = await createAirtableRecords("resourceBookings", [{ fields: {
     [f.label]: `${project.name} (offline request)`, [f.person]: [input.account.personId], [f.project]: [project.id],
     [f.requestedBy]: [input.account.personId], [f.requestStatus]: "Requested by person", [f.requestNote]: input.note.trim(),
+    [f.personConfirmationStatus]: "Not required",
     [f.startDate]: input.startDate, [f.endDate]: input.endDate, [f.hoursPerWeek]: input.hoursPerWeek,
     [f.clashFlagged]: false,
   } }]);
@@ -274,7 +474,7 @@ export async function getQuarterlyUtilisation(quarter: string) {
     let quarterCapacity = 0, quarterBooked = 0, peak = 0;
     for (const week of weeks) {
       const weekEnd = new Date(week); weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
-      const booked = bookings.filter((row) => row.personId === person.id && row.requestStatus !== "Declined by lead" && row.startDate <= iso(weekEnd) && row.endDate >= iso(week)).reduce((sum, row) => sum + row.hoursPerWeek, 0);
+      const booked = bookings.filter((row) => row.personId === person.id && !isDeclinedBooking(row) && row.startDate <= iso(weekEnd) && row.endDate >= iso(week)).reduce((sum, row) => sum + row.hoursPerWeek, 0);
       const { capacity, leaveHours, holidayHours } = weekCapacity(person, iso(week), leaves, holidays);
       quarterCapacity += capacity; quarterBooked += booked;
       const ratio = capacity > 0 ? booked / capacity : booked > 0 ? 2 : 0;

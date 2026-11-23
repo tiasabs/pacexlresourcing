@@ -22,29 +22,38 @@ export type AirtableReadOverview = {
 };
 
 export async function getAirtableReadOverview(): Promise<AirtableReadOverview> {
-  const firstBatch = await Promise.all(
+  const [firstBatch, secondBatch, importLog] = await Promise.all([
+    Promise.all(
     tableSpecs.slice(0, 3).map(async (table) => ({
       table,
       records: await listAirtableRecords(table.key, [...table.fieldIds]),
     })),
-  );
-  const secondBatch = await Promise.all(
+    ),
+    Promise.all(
     tableSpecs.slice(3).map(async (table) => ({
       table,
       records: await listAirtableRecords(table.key, [...table.fieldIds]),
     })),
-  );
+    ),
+    listAirtableRecords("importLog", [airtable.fields.importLog.importType, airtable.fields.importLog.committedAtUtc]),
+  ]);
   const batches = [...firstBatch, ...secondBatch];
   const peopleRecords = firstBatch.find(({ table }) => table.key === "people")?.records ?? [];
   const lastSeenDates = peopleRecords
     .map(({ fields }) => fields[airtable.fields.people.lastSeenInHRFile])
     .filter((value): value is string => typeof value === "string");
+  const latestSnapshot = importLog
+    .filter((record) => ["People", "Planned Leave"].includes(String(record.fields[airtable.fields.importLog.importType] ?? "")))
+    .map((record) => record.fields[airtable.fields.importLog.committedAtUtc])
+    .filter((value): value is string => typeof value === "string")
+    .sort()
+    .at(-1);
 
   return {
     tableCounts: batches.map(({ table, records }) => ({
       label: table.label,
       count: records.length,
     })),
-    peopleLastSeenInHrFile: lastSeenDates.sort().at(-1) ?? null,
+    peopleLastSeenInHrFile: latestSnapshot ?? lastSeenDates.sort().at(-1) ?? null,
   };
 }

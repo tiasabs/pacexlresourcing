@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
 type CurrentPerson = { id: string; employeeId: unknown; name: unknown; email: unknown; team: unknown; region: unknown; status: unknown; hours: unknown; days: unknown; role: unknown; roleLevel: unknown; manager: string; startDate: unknown; endDate: unknown };
-type Preview = { previewId: string; kind: "people" | "plannedLeave"; fileName: string; rowsReceived: number; added: number; updated: number; unchanged: number; markedInactive: number; markedCancelled: number; missingPercentage: number; missingWarning: boolean; warnings: string[]; issues: Array<{ row: number; message: string }> };
+type Preview = { previewId: string; kind: "people" | "plannedLeave"; fileName: string; rowsReceived: number; added: number; updated: number; unchanged: number; markedInactive: number; markedCancelled: number; missingPercentage: number; missingWarning: boolean; warnings: string[]; issues: Array<{ row: number; message: string }>; changes: Array<{ category: string; label: string; details: string }> };
 type Message = { tone: "success" | "warning" | "error"; text: string };
 type UploadAction = { kind: "people" | "plannedLeave"; action: "preview" | "commit" } | null;
 
@@ -54,7 +54,7 @@ function ImportCard({ kind, title, template, preview, activeAction, resetKey, on
               {cardPreview.issues.length ? `${cardPreview.issues.length} issue${cardPreview.issues.length === 1 ? "" : "s"}` : "File received"}
             </span>
           </div>
-          <p className="review-instruction">Review the proposed changes before submitting.</p>
+          <p className="review-instruction">Unchanged records are skipped. Check the listed exceptions before submitting.</p>
           <dl className="hr-preview-stats">
             <div><dt>Rows received</dt><dd>{cardPreview.rowsReceived}</dd></div>
             <div><dt>New</dt><dd>{cardPreview.added}</dd></div>
@@ -64,6 +64,7 @@ function ImportCard({ kind, title, template, preview, activeAction, resetKey, on
               ? <div><dt>Mark as left</dt><dd>{cardPreview.markedInactive}</dd></div>
               : <div><dt>Cancel or mark taken</dt><dd>{cardPreview.markedCancelled}</dd></div>}
           </dl>
+          {cardPreview.changes.length > 0 && <div className="hr-change-review"><strong>Changes to review ({cardPreview.changes.length})</strong><ul>{cardPreview.changes.slice(0, 6).map((change, index) => <li key={`${change.category}-${change.label}-${index}`}><span className="hr-change-category">{change.category}</span><span><b>{change.label}</b><small>{change.details}</small></span></li>)}</ul>{cardPreview.changes.length > 6 && <details><summary>Show {cardPreview.changes.length - 6} more</summary><ul>{cardPreview.changes.slice(6).map((change, index) => <li key={`${change.category}-${change.label}-${index + 6}`}><span className="hr-change-category">{change.category}</span><span><b>{change.label}</b><small>{change.details}</small></span></li>)}</ul></details>}</div>}
           {cardPreview.missingWarning && <p className="hr-warning" role="status">{Math.round(cardPreview.missingPercentage * 100)}% of active people are missing from this snapshot. This is a warning; you can still submit.</p>}
           {cardPreview.warnings.length > 0 && <div className="hr-notes"><strong>Notes</strong><ul>{cardPreview.warnings.map((warning, index) => <li key={`${index}-${warning}`}>{warning}</li>)}</ul></div>}
           {cardPreview.issues.length > 0 && <div className="hr-errors"><strong>Correct the CSV and submit it again</strong><ul>{cardPreview.issues.slice(0, 12).map((issue, index) => <li key={`${issue.row}-${index}`}>{issue.row === 1 ? "File" : `Row ${issue.row}`}: {issue.message}</li>)}</ul>{cardPreview.issues.length > 12 && <p>And {cardPreview.issues.length - 12} more issue(s).</p>}</div>}
