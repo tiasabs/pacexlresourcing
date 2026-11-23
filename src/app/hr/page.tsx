@@ -12,13 +12,7 @@ export default async function HrPage() {
   const lists = await getHrCurrentLists().catch(() => ({ people: [], leave: [] }));
   return (
     <AppShell account={account}>
-      <section className="dashboard-intro">
-        <div>
-          <p className="eyebrow">Data operations</p>
-          <h1>People and leave</h1>
-          <p className="dashboard-lede">Review current HR records, upload a people or leave export, and check the proposed Airtable changes before submitting.</p>
-        </div>
-      </section>
+      <section className="dashboard-intro"><div><h1>People and leave</h1></div></section>
       <HrImportWorkspace people={lists.people} leave={lists.leave} />
     </AppShell>
   );
