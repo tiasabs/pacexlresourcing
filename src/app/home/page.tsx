@@ -4,7 +4,6 @@ import { getAirtableConfigStatus } from "@/lib/airtable/config-check";
 import { getAirtableReadOverview } from "@/lib/airtable/overview";
 import { getDemoSession } from "@/lib/demo/session";
 import {
-  canRunPeopleRefresh,
   canViewAllBookings,
   canViewOrganisationLoad,
   roleLabels,
@@ -88,16 +87,6 @@ export default async function HomePage() {
         </section>
       )}
 
-      {canRunPeopleRefresh(account) && (
-        <section className="hr-home-action">
-          <div>
-            <p className="eyebrow">Data operations</p>
-            <h2>People and planned leave</h2>
-            <p>Review current HR records and submit a new export.</p>
-          </div>
-          <a className="primary-action" href="/hr">Open HR uploads</a>
-        </section>
-      )}
     </AppShell>
   );
 }
