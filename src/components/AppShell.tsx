@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import type { DemoAccount } from "@/lib/demo/accounts";
-import { canRunPeopleRefresh, canViewAllBookings, canViewOrganisationLoad, roleLabels } from "@/lib/auth/permissions";
+import { canRunPeopleRefresh, canViewAllBookings, canViewOrganisationLoad, hasAnyRole, roleLabels } from "@/lib/auth/permissions";
 
 export function AppShell({
   account,
@@ -20,10 +20,12 @@ export function AppShell({
   const navItems = [
     { label: "Overview", href: "/home", visible: true },
     { label: "My bookings", href: "/bookings", visible: true },
-    { label: "Team bookings", href: "/team", visible: account.derivedRoles.includes("line_manager") || canViewAllBookings(account) },
-    { label: "Project bookings", href: "/projects", visible: account.derivedRoles.includes("project_lead") || canViewAllBookings(account) },
+    { label: "Log actual hours", href: "/actuals", visible: true },
+    { label: "Team bookings", href: "/team", visible: hasAnyRole(account, ["line_manager"]) || canViewAllBookings(account) },
+    { label: "Project bookings", href: "/projects", visible: hasAnyRole(account, ["project_lead"]) || canViewAllBookings(account) },
     { label: "Utilisation", href: "/leadership", visible: canViewOrganisationLoad(account) },
     { label: "People and leave", href: "/hr", visible: canRunPeopleRefresh(account) },
+    { label: "Demo accounts", href: "/accounts", visible: canViewAllBookings(account) },
   ].filter((item) => item.visible);
 
   async function switchAccount() {

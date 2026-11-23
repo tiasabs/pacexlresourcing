@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { BookingRow } from "@/lib/airtable/workspace";
+import type { BookingRow } from "@/lib/airtable/resourcing-flow";
 import { bookingStatusLabel } from "@/components/BookingsTable";
 
 function formatDate(value: string) {
@@ -22,6 +22,8 @@ export function BookingDetailsDialog({ booking, onClose }: { booking: BookingRow
     <dl className="booking-detail-list">
       <div><dt>Dates</dt><dd>{formatDate(booking.startDate)} – {formatDate(booking.endDate)}</dd></div>
       <div><dt>Hours per week</dt><dd>{booking.hoursPerWeek}</dd></div>
+      <div><dt>Team</dt><dd>{booking.teamRequested || "—"}</dd></div>
+      <div><dt>Milestones</dt><dd>{booking.allocations.map((allocation) => `${allocation.milestoneName} (${allocation.hoursPerWeek} h/wk)`).join(" · ") || "—"}</dd></div>
       <div><dt>Status</dt><dd>{bookingStatusLabel(booking)}</dd></div>
       <div><dt>Project Lead</dt><dd>{booking.leadName || "—"}</dd></div>
       {booking.requestNote && <div><dt>Request note</dt><dd>{booking.requestNote}</dd></div>}

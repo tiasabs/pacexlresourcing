@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { BookingRow } from "@/lib/airtable/workspace";
+import type { BookingRow } from "@/lib/airtable/resourcing-flow";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const toIso = (date: Date) => date.toISOString().slice(0, 10);

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { getTeamRosterRows } from "@/lib/airtable/workspace";
+import { getTeamPeople } from "@/lib/airtable/resourcing-flow";
 import { canViewAllBookings, hasAnyRole } from "@/lib/auth/permissions";
 import { getDemoSession } from "@/lib/demo/session";
 
@@ -9,7 +9,7 @@ export default async function TeamBookingsPage() {
   const account = await getDemoSession();
   if (!account) redirect("/");
   if (!canViewAllBookings(account) && !hasAnyRole(account, ["line_manager"])) redirect("/home");
-  const people = await getTeamRosterRows(account);
+  const people = await getTeamPeople(account);
   const reviewPeople = people.filter((person) => person.hasCapacityAlert);
   return <AppShell account={account}>
     <section className="dashboard-intro"><div><p className="eyebrow">Direct reports</p><h1>Team bookings</h1><p className="dashboard-lede">Start with your team. Open a person to review their bookings and capacity details.</p></div></section>

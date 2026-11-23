@@ -28,14 +28,14 @@ export function BookingRequestForm({ projects }: { projects: Project[] }) {
       if (!response.ok) throw new Error(result.error ?? "The request could not be sent.");
       formElement.reset();
       setStartDate(""); setEndDate("");
-      setMessage(`Request sent to ${result.leadNames.join(", ")}. It now appears in your bookings as pending and is visible to the Project Lead.`);
+      setMessage(`Request sent to ${result.leadNames}. It’s a reminder for the Project Lead; it does not reserve capacity until they create a booking.`);
       router.refresh();
     } catch (error) { setMessage(error instanceof Error ? error.message : "The request could not be sent."); }
     finally { setBusy(false); }
   }
   return <section className="request-card">
     <p className="eyebrow">Was a project agreed offline?</p><h2>Ask the Project Lead to record it</h2>
-    <p>The request appears as a pending booking so your workload is visible while the Project Lead reviews it. It does not send email.</p>
+    <p>Send a reminder to the Project Lead to record work agreed offline. A request does not reserve capacity; only a booking does.</p>
     {projects.length ? <form className="booking-request-form" onSubmit={submit}>
       <label className="booking-project-label">Project<select name="projectId" required defaultValue=""><option value="" disabled>Select a project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
       <label>Start date<input name="startDate" type="date" required value={startDate} onChange={(event) => { setStartDate(event.target.value); if (endDate && event.target.value > endDate) setEndDate(""); }} /></label>
