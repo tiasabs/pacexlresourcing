@@ -27,8 +27,7 @@ export default async function ProjectBookingsPage() {
   });
   const bidSummaries = bids.map((bid) => ({ ...bid, remainingBookings: bid.stage === "Lost" ? bookings.filter((booking) => booking.projectId === bid.id && booking.bookingStatus === "Booked" && booking.endDate >= new Date().toISOString().slice(0, 10)) : [] }));
   return <AppShell account={account}>
-    <section className="dashboard-intro"><div><p className="eyebrow">Project resourcing</p><h1>Projects and Bids</h1><p className="dashboard-lede">Create the work, add milestones, check availability and make bookings.</p></div></section>
-    <ProjectCreateForm admin={canViewAllBookings(account)} leads={leads} />
+    <section className="dashboard-intro project-dashboard-intro"><div><p className="eyebrow">Project resourcing</p><h1>Projects and Bids</h1><p className="dashboard-lede">Create the work, add milestones, check availability and make bookings.</p></div><ProjectCreateForm admin={canViewAllBookings(account)} leads={leads} /></section>
     <section className="hr-records-section"><div className="data-overview-heading"><div><p className="eyebrow">Delivery work</p><h2>{projects.length} Project{projects.length === 1 ? "" : "s"}</h2></div><span className="notice-tag">Select a project for details</span></div>
       <div className="project-overview-grid" aria-label="Projects and resourcing flags">{summaries.map((project) => <Link className="project-overview-card" href={`/projects/${project.id}`} key={project.id}>
         <span className="project-overview-arrow" aria-hidden="true">↗</span><span className="eyebrow">{project.bookingCount} booking{project.bookingCount === 1 ? "" : "s"} · {project.client || "Client not set"}</span><strong>{project.name}</strong><span className="project-issue-list">{project.flags.length ? project.flags.map((flag) => <span className="project-issue-flag" key={flag}>{flag}</span>) : <span className="project-issue-clear">No current resourcing flags</span>}</span>
