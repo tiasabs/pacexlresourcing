@@ -23,7 +23,7 @@ export function BookingRequestForm({ projects }: { projects: Project[] }) {
     }
     setBusy(true); setMessage("");
     try {
-      const response = await fetch("/api/bookings/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId: form.get("projectId"), startDate: form.get("startDate"), endDate: form.get("endDate"), hoursPerWeek: Number(form.get("hoursPerWeek")), note: form.get("note"), offlineRequest: form.get("offlineRequest") === "on" }) });
+      const response = await fetch("/api/bookings/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId: form.get("projectId"), startDate: form.get("startDate"), endDate: form.get("endDate"), hoursPerWeek: Number(form.get("hoursPerWeek")), note: form.get("note") }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "The request could not be sent.");
       formElement.reset();
@@ -42,7 +42,6 @@ export function BookingRequestForm({ projects }: { projects: Project[] }) {
       <label>End date<input name="endDate" type="date" required min={startDate || undefined} value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
       <label>Hours per week<input name="hoursPerWeek" type="number" min="0.5" max="168" step="0.5" required /></label>
       <label className="request-note-label">Note (optional)<textarea name="note" maxLength={500} rows={2} placeholder="Add context for the Project Lead" /></label>
-      <label className="offline-check"><input name="offlineRequest" type="checkbox" required /> I was asked about this project offline.</label>
       <button className="primary-action" disabled={busy} type="submit">{busy ? "Sending request…" : "Send request to Project Lead"}</button>
       {message && <p className={`upload-message ${message.startsWith("Request sent") ? "upload-message-success" : "upload-message-warning"}`} role="status">{message}</p>}
     </form> : <p className="empty-state">No projects with an assigned Project Lead are available yet.</p>}
