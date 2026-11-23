@@ -1,6 +1,6 @@
 # Resourcing Radar
 
-A local resourcing app for a charity PMO. The demo provides six persona shortcuts, a role-aware workspace, a server-side Airtable read layer, and an HR workspace for People and Planned Leave snapshots.
+A local resourcing app for a fictional charity PMO. The demo provides six persona shortcuts, a role-aware workspace, an end-to-end bid/project resourcing flow, weekly actual-hours logging, and an HR workspace for People and Planned Leave snapshots.
 
 ## Run locally
 
@@ -15,18 +15,19 @@ Open `http://localhost:3000`. Choose a persona to enter the demo. There is no lo
 
 The base and table/field IDs are in `src/config/airtable.ts`. Store the Airtable personal access token in `.env.local` as `AIRTABLE_PERSONAL_ACCESS_TOKEN`. Do not expose it through a `NEXT_PUBLIC_` variable or commit it. `.env.example` lists the expected local variables.
 
-The base contains People, Projects and Bids, Planned Leave, Resource Bookings, Public Holidays, Settings, App Accounts, Effort Bands, Person Weeks, and Import Log. A typed `Application Settings` row holds load thresholds, the missing-row warning threshold, and refresh cadence; older key/value settings rows remain in place.
+The base contains People, Projects and Bids, Project Milestones, Resource Bookings, Booking Terms, Booking Allocations, Weekly Actuals, Planned Leave, Public Holidays, Settings, App Accounts, Person Weeks, and Import Log. App code uses table and field IDs from `src/config/airtable.ts`. A typed `Application Settings` row holds load thresholds and HR refresh settings.
 
-The six enabled demo personas are records in App Accounts linked to People. Admin, HR, and C-Suite are assigned roles; Individual is implicit; Line Manager and Project Lead are derived from People and project relationships. Each request reloads the account and role data from Airtable, so changes to App Roles take effect on the next page request.
+The six enabled demo personas are records in App Accounts linked to People. Admin, HR, C-Suite, Line Manager, and Project Lead are assigned roles; Individual is implicit. Admin manages accounts and role assignments. Each request reloads account and role data from Airtable, so changes to App Roles take effect on the next page request.
 
 ## Booking views
 
-- `/bookings` shows the signed-in demo person's bookings read-only. They can submit an offline request for a selected project, dates, and hours. The request is stored as a pending booking, contributes to the person's visible workload, and appears in the relevant Project Lead inbox. No email is sent.
-- `/projects` shows bookings on projects the signed-in person leads and lets the lead approve or decline pending requests.
+- `/projects` lets Project Leads create Projects and lightweight Bids, add and edit milestones, view availability, book people, and manage requests for their projects. A Bid can be marked Go and converted into a Project. Internal Bid Due Date is kept separate from the external submission deadline.
+- `/bookings` shows the signed-in demo person's bookings read-only and lets them request a booking for a selected project, dates, and hours. Requests do not reserve capacity; the lead chooses the final dates, team, hours, and milestone allocation when turning one into a booking. In-app notices are derived from saved booking records; no email or notification table is used.
+- `/actuals` lets a person enter weekly actual hours for booked milestones, with project and week totals. Blank entries remain unlogged; zero is a logged zero. Entries can be added retroactively, while saved entries can only be edited through the Sunday after their work week.
 - `/team` shows the signed-in person's own bookings and direct reports' bookings.
-- `/leadership` shows named quarterly booked hours divided by capacity and peak weekly load/status. It assigns weeks to the quarter containing Monday and labels results as based on current bookings. The server calculates and upserts the weekly rows in Person Weeks; C-Suite cannot drill into booking details.
+- `/leadership` shows quarterly booked hours divided by capacity, peak weekly load/status, and expected-versus-actual summaries by team. Weeks belong to the quarter containing Monday. Forward views are based on current bookings, including regular demo records through 2027 Q4. C-Suite can see named load; booking details are available to Admin.
 
-The demo uses fictional seed people, projects, and bookings. Project-plan uploads, AI milestone drafting, editing/locking planned milestone dates, and automated weekly HR reminders remain future workflow work.
+The demo uses fictional people, projects, milestones, bookings, and future booking records. Milestone planned dates lock on the first saved booking, while expected dates remain editable. Booking and allocation changes are effective-dated so past weekly expectations remain available for comparison. AI document extraction and milestone drafting remain deferred until the manual flow is established.
 
 ## HR snapshot workflow
 
@@ -43,9 +44,12 @@ Only leave with approval `Status` of `Approved` is capacity relevant. `Leave Hou
 - `GET /api/config-check` checks Airtable connectivity and configured table IDs.
 - `POST /api/hr-import/preview` validates an uploaded CSV and creates an in-memory preview for HR/Admin.
 - `POST /api/hr-import/commit` applies a validated preview and creates an Import Log row.
-- `POST /api/bookings/request` creates a pending offline booking request for the signed-in person.
-- `POST /api/bookings/decision` lets a Project Lead approve or decline a request on their project.
+- `POST /api/projects` and `POST /api/projects/bid` create Projects and Bids; `PATCH /api/projects` edits them.
+- `GET /api/bookings/availability` returns team availability and load status without exposing other projects' details.
+- `POST /api/bookings/lead` creates a booking immediately; `POST /api/bookings/edit` preserves prior booking terms; `POST /api/bookings/request` creates a capacity-neutral request; `POST /api/bookings/decision` books or declines a request.
+- `POST /api/actuals` saves weekly milestone actual hours.
+- `POST /api/accounts` lets Admin manage demo accounts and roles.
 
-Airtable requests use table and field IDs and run server-side; the token is never sent to the browser. Reads are paginated. The token needs Airtable record read and write access to use the import workflow.
+Airtable requests use table and field IDs and run server-side; the token is never sent to the browser. Reads are paginated. The token needs Airtable record read and write access for the app workflows.
 
 The demo session uses an ephemeral signed cookie; there is no session database. The local development secret fallback is only for this fictional local demo. Configure `DEMO_SESSION_SECRET` before running in any deployed environment.

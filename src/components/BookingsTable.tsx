@@ -1,6 +1,6 @@
 "use client";
 
-import type { BookingRow } from "@/lib/airtable/workspace";
+import type { BookingRow } from "@/lib/airtable/resourcing-flow";
 
 function date(value: string) {
   if (!value) return "—";
@@ -8,13 +8,10 @@ function date(value: string) {
 }
 
 export function bookingStatusLabel(row: BookingRow) {
-  if (row.personConfirmationStatus === "Awaiting response") return "Waiting for your response";
-  if (row.personConfirmationStatus === "Declined") return "Declined by you";
-  if (row.personConfirmationStatus === "Confirmed") return "Confirmed";
-  if (row.requestStatus === "Requested by person") return "Waiting for Project Lead";
-  if (row.requestStatus === "Approved by lead") return "Approved by Project Lead";
-  if (row.requestStatus === "Declined by lead") return "Declined by Project Lead";
-  return row.confirmedOn ? "Confirmed" : "Not yet confirmed";
+  if (row.bookingStatus === "Request" && row.requestStatus === "Requested by person") return "Request to Project Lead";
+  if (row.bookingStatus === "Booked" && row.requestStatus === "Approved by lead") return "Booked from request";
+  if (row.bookingStatus === "Cancelled" || row.requestStatus === "Declined by lead") return "Cancelled";
+  return "Booked";
 }
 
 export function BookingsTable({ rows, showPerson = false, onSelect }: { rows: BookingRow[]; showPerson?: boolean; onSelect?: (row: BookingRow) => void }) {

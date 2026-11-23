@@ -1,5 +1,5 @@
-export type AssignedRole = "admin" | "c_suite" | "hr";
-export type DerivedRole = "line_manager" | "project_lead";
+export type AssignedRole = "admin" | "c_suite" | "hr" | "line_manager" | "project_lead";
+export type DerivedRole = never;
 export type EffectiveRole = "individual" | AssignedRole | DerivedRole;
 
 export type DemoAccount = {

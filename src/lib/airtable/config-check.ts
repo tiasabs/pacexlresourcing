@@ -11,9 +11,12 @@ const requiredTables = [
   "publicHolidays",
   "settings",
   "appAccounts",
-  "effortBands",
   "personWeeks",
   "importLog",
+  "projectMilestones",
+  "bookingTerms",
+  "bookingAllocations",
+  "weeklyActuals",
 ] as const;
 
 export async function getAirtableConfigStatus() {

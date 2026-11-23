@@ -1122,3 +1122,51 @@ h2 {
 .milestone-edit-details > summary { width: max-content; cursor: pointer; color: var(--color-muted); font-size: 0.76rem; font-weight: 650; }
 .milestone-edit-details .milestone-create-form { margin-top: 0.65rem; }
 .milestone-locked-note { grid-column: 1 / -1; margin: 0; color: var(--color-muted); font-size: 0.72rem; }
+
+/* End-to-end project, booking and actual-hours workspaces */
+.booking-create-form, .project-create-form, .account-admin-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 0.75rem; padding: 1rem; border: 1px solid var(--color-subtle-border); border-radius: var(--radius-card); background: var(--color-surface-soft); }
+.booking-create-form > label, .project-create-form > label, .account-admin-form > label, .project-booking-management label { display: grid; gap: 0.3rem; font-size: 0.76rem; font-weight: 650; }
+.booking-create-form input, .booking-create-form select, .project-create-form input, .project-create-form select, .account-admin-form input, .account-admin-form select, .project-booking-management input, .project-booking-management select, .actuals-table input { min-height: 2.4rem; max-width: 100%; padding: 0.45rem 0.6rem; border: 1px solid var(--color-subtle-border); border-radius: 0.5rem; background: var(--color-bg); font: inherit; font-size: 0.8rem; }
+.booking-create-form .booking-wide, .project-create-form .project-wide { grid-column: 1 / -1; }
+.milestone-allocation-picker { display: grid; gap: 0.5rem; }
+.milestone-allocation-picker > strong { font-size: 0.82rem; }
+.allocation-picker-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(7rem, 10rem); align-items: center; gap: 0.8rem; padding: 0.6rem; border: 1px solid var(--color-subtle-border); border-radius: 0.55rem; background: var(--color-bg); }
+.allocation-picker-name { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; }
+.allocation-hours { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.35rem; color: var(--color-muted); font-size: 0.75rem; }
+.project-booking-management { display: grid; gap: 0.8rem; }
+.project-booking-row { display: grid; gap: 0.6rem; padding: 0.85rem; border: 1px solid var(--color-subtle-border); border-radius: 0.7rem; background: var(--color-bg); }
+.booking-edit-details { margin-top: 0.25rem; }
+.booking-edit-details > summary { width: max-content; cursor: pointer; color: var(--color-muted); font-size: 0.76rem; font-weight: 650; }
+.booking-edit-details form { margin-top: 0.65rem; }
+.request-booking-editor, .request-final-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.65rem; }
+.request-booking-editor > label, .request-final-fields > label { display: grid; gap: 0.3rem; font-size: 0.76rem; font-weight: 650; }
+.request-booking-editor input, .request-booking-editor select, .request-final-fields input, .request-final-fields select { width: 100%; min-height: 2.4rem; padding: 0.45rem 0.6rem; border: 1px solid var(--color-subtle-border); border-radius: 0.5rem; background: var(--color-bg); font: inherit; font-size: 0.8rem; }
+.request-final-booking { display: grid; gap: 0.65rem; margin-top: 0.7rem; padding: 0.8rem; border-radius: 0.6rem; background: var(--color-surface-soft); }
+.weekly-actuals-section form { display: grid; gap: 1rem; }
+.actual-week-picker { display: grid; gap: 0.3rem; min-width: 11rem; color: var(--color-muted); font-size: 0.75rem; }
+.actual-week-picker input { min-height: 2.4rem; padding: 0.4rem 0.6rem; border: 1px solid var(--color-subtle-border); border-radius: 0.5rem; background: var(--color-bg); font: inherit; }
+.weekly-actual-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.7rem; }
+.weekly-actual-summary > div { display: grid; gap: 0.25rem; padding: 0.8rem; border: 1px solid var(--color-subtle-border); border-radius: 0.65rem; background: var(--color-surface-soft); }
+.weekly-actual-summary strong { font-family: var(--font-heading); font-size: 1.5rem; }
+.actual-project-block { display: grid; gap: 0.5rem; }
+.actual-project-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; }
+.actual-project-heading h3 { margin: 0; font-family: var(--font-heading); font-size: 1.15rem; }
+.actuals-table input { width: 8rem; }
+.actual-save-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.8rem; }
+.account-admin-list { display: grid; gap: 0.7rem; }
+.account-admin-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 1rem; padding: 0.9rem; border: 1px solid var(--color-subtle-border); border-radius: 0.7rem; background: var(--color-bg); }
+.account-admin-card h3 { margin: 0; font-family: var(--font-heading); font-size: 1.1rem; }
+.account-role-options { display: flex; flex-wrap: wrap; gap: 0.35rem 0.7rem; }
+.account-role-options label { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; }
+.account-enabled { color: var(--color-status-green); }
+.bid-decision-card, .bid-decision-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+@media (max-width: 760px) {
+  .booking-create-form, .project-create-form, .account-admin-form, .request-booking-editor, .request-final-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .weekly-actual-summary { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .booking-create-form, .project-create-form, .account-admin-form, .request-booking-editor, .request-final-fields { grid-template-columns: 1fr; }
+  .booking-create-form .booking-wide, .project-create-form .project-wide { grid-column: auto; }
+  .allocation-picker-row { grid-template-columns: 1fr; }
+  .account-admin-card { grid-template-columns: 1fr; }
+}

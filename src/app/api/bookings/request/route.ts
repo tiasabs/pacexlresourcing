@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createBookingRequest } from "@/lib/airtable/workspace";
+import { createBookingRequest } from "@/lib/airtable/resourcing-flow";
 import { getDemoSession } from "@/lib/demo/session";
 
 export async function POST(request: Request) {

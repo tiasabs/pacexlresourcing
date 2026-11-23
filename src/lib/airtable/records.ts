@@ -48,6 +48,7 @@ export async function listAirtableRecords(
 export async function createAirtableRecords(
   tableKey: AirtableTableKey,
   records: Array<{ fields: Record<string, unknown> }>,
+  typecast = false,
 ) {
   const tableId = airtable.tables[tableKey];
   if (!tableId) throw new Error(`The Airtable table ID for ${tableKey} is not configured.`);
@@ -55,7 +56,7 @@ export async function createAirtableRecords(
   for (let index = 0; index < records.length; index += 10) {
     const result = await airtableRequest<{ records: AirtableRecord[] }>(
       `${airtable.baseId}/${tableId}?returnFieldsByFieldId=true`,
-      { method: "POST", body: JSON.stringify({ records: records.slice(index, index + 10) }) },
+      { method: "POST", body: JSON.stringify({ records: records.slice(index, index + 10), typecast }) },
     );
     created.push(...result.records);
   }
@@ -65,6 +66,7 @@ export async function createAirtableRecords(
 export async function updateAirtableRecords(
   tableKey: AirtableTableKey,
   records: Array<{ id: string; fields: Record<string, unknown> }>,
+  typecast = false,
 ) {
   const tableId = airtable.tables[tableKey];
   if (!tableId) throw new Error(`The Airtable table ID for ${tableKey} is not configured.`);
@@ -72,9 +74,19 @@ export async function updateAirtableRecords(
   for (let index = 0; index < records.length; index += 10) {
     const result = await airtableRequest<{ records: AirtableRecord[] }>(
       `${airtable.baseId}/${tableId}?returnFieldsByFieldId=true`,
-      { method: "PATCH", body: JSON.stringify({ records: records.slice(index, index + 10) }) },
+      { method: "PATCH", body: JSON.stringify({ records: records.slice(index, index + 10), typecast }) },
     );
     updated.push(...result.records);
   }
   return updated;
+}
+
+export async function deleteAirtableRecords(tableKey: AirtableTableKey, recordIds: string[]) {
+  const tableId = airtable.tables[tableKey];
+  if (!tableId) throw new Error(`The Airtable table ID for ${tableKey} is not configured.`);
+  for (let index = 0; index < recordIds.length; index += 10) {
+    const query = new URLSearchParams();
+    for (const id of recordIds.slice(index, index + 10)) query.append("records[]", id);
+    await airtableRequest(`${airtable.baseId}/${tableId}?${query.toString()}`, { method: "DELETE" });
+  }
 }

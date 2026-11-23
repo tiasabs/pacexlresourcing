@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { BookingsView } from "@/components/BookingsView";
-import { getTeamMemberBookingRows } from "@/lib/airtable/workspace";
+import { getTeamPerson } from "@/lib/airtable/resourcing-flow";
 import { canViewAllBookings, hasAnyRole } from "@/lib/auth/permissions";
 import { getDemoSession } from "@/lib/demo/session";
 
@@ -11,7 +11,7 @@ export default async function TeamMemberBookingsPage({ params }: { params: Promi
   if (!account) redirect("/");
   if (!canViewAllBookings(account) && !hasAnyRole(account, ["line_manager"])) redirect("/home");
   const { personId } = await params;
-  const detail = await getTeamMemberBookingRows(account, personId);
+  const detail = await getTeamPerson(account, personId);
   if (!detail) notFound();
   return <AppShell account={account}>
     <section className="dashboard-intro"><div><Link className="text-button hr-back-link" href="/team">‹ Team bookings</Link><p className="eyebrow">{detail.person.team}</p><h1>{detail.person.name}</h1><p className="dashboard-lede">Bookings and request status for this person.</p></div></section>
