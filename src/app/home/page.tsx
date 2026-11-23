@@ -6,6 +6,7 @@ import { getDemoSession } from "@/lib/demo/session";
 import {
   canRunPeopleRefresh,
   canViewAllBookings,
+  canViewOrganisationLoad,
   roleLabels,
 } from "@/lib/auth/permissions";
 
@@ -18,6 +19,14 @@ export default async function HomePage() {
   const airtableOverview = canViewAllBookings(account) && config.connected
     ? await getAirtableReadOverview().catch(() => null)
     : null;
+  const isAdmin = canViewAllBookings(account);
+  const functionCards = [
+    { title: "My bookings", detail: "See your bookings, check weekly hours and send a request for work agreed offline.", href: "/bookings", visible: true },
+    { title: "Team bookings", detail: "Review your own bookings and those of your direct reports.", href: "/team", visible: isAdmin || account.derivedRoles.includes("line_manager") },
+    { title: "Project bookings", detail: "See bookings on your projects and respond to pending requests.", href: "/projects", visible: isAdmin || account.derivedRoles.includes("project_lead") },
+    { title: "Quarterly utilisation", detail: "See named quarterly booked hours, capacity and peak weekly load.", href: "/leadership", visible: canViewOrganisationLoad(account) },
+    { title: "People and leave", detail: "View People records, upload HR snapshots and review planned leave.", href: "/hr", visible: canRunPeopleRefresh(account) },
+  ].filter((item) => item.visible);
 
   return (
     <AppShell account={account}>
@@ -33,6 +42,13 @@ export default async function HomePage() {
           <div className="role-chip-list">
             {roles.map((role) => <span className="role-chip" key={role}>{role}</span>)}
           </div>
+        </div>
+      </section>
+
+      <section className="home-functions" aria-labelledby="home-functions-title">
+        <div className="data-overview-heading"><div><p className="eyebrow">Available to you</p><h2 id="home-functions-title">Your functions</h2></div></div>
+        <div className="home-function-grid">
+          {functionCards.map((item) => <a className="home-function-card" href={item.href} key={item.href}><strong>{item.title}</strong><span>{item.detail}</span><span className="home-function-arrow" aria-hidden="true">↗</span></a>)}
         </div>
       </section>
 

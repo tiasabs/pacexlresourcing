@@ -5,7 +5,7 @@ function date(value: string) {
   return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`));
 }
 
-function status(row: BookingRow) {
+export function bookingStatusLabel(row: BookingRow) {
   if (row.requestStatus === "Requested by person") return "Waiting for Project Lead";
   if (row.requestStatus === "Approved by lead") return "Approved by Project Lead";
   if (row.requestStatus === "Declined by lead") return "Declined by Project Lead";
@@ -21,8 +21,8 @@ export function BookingsTable({ rows, showPerson = false }: { rows: BookingRow[]
       <td><strong>{row.projectName}</strong>{row.label && <small className="table-subtitle">{row.label}</small>}{row.requestNote && <small className="table-subtitle">Request: {row.requestNote}</small>}</td>
       <td>{date(row.startDate)} – {date(row.endDate)}</td>
       <td>{row.hoursPerWeek}</td>
-      <td>{status(row)}</td>
-      <td>{row.clashFlagged ? <span className="load-status status-red" title={row.clashNote || "Potential booking clash"}>Flagged</span> : "—"}</td>
+      <td>{bookingStatusLabel(row)}</td>
+      <td>{row.clashFlagged ? <span className="load-status status-amber" title={row.clashNote || "Weekly booked hours exceed contracted hours"}>Over contract</span> : "—"}</td>
     </tr>)}</tbody>
   </table></div>;
 }

@@ -24,7 +24,7 @@ export function BookingRequestInbox({ requests }: { requests: BookingRow[] }) {
     {requests.map((request) => <article className="request-inbox-item" key={request.id}>
       <div><strong>{request.personName}</strong><span> requested {request.hoursPerWeek} hours per week on <strong>{request.projectName}</strong></span>
         <p>{request.startDate} – {request.endDate}{request.requestNote ? ` · ${request.requestNote}` : ""}</p>
-        {request.clashFlagged && <p className="hr-warning">Potential clash: this request takes the person's weekly bookings above contracted hours.</p>}
+        {request.clashFlagged && <p className="hr-warning">The person&apos;s total weekly bookings are above their contracted hours during these dates. Projects may still overlap when the total stays within their hours.</p>}
       </div>
       <div className="request-actions"><button className="primary-action" disabled={Boolean(busyId)} onClick={() => decide(request.id, true)} type="button">{busyId === request.id ? "Saving…" : "Approve"}</button><button className="text-button" disabled={Boolean(busyId)} onClick={() => decide(request.id, false)} type="button">Decline</button></div>
     </article>)}

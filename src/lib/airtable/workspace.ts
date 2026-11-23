@@ -9,6 +9,7 @@ type Person = { id: string; name: string; firstName: string; team: string; manag
 export type BookingRow = {
   id: string; bookingId: string; label: string; personId: string; personName: string; projectId: string; projectName: string;
   startDate: string; endDate: string; hoursPerWeek: number; confirmedOn: string; clashFlagged: boolean; clashNote: string;
+  clashWeeks: Array<{ weekStart: string; weekLabel: string; bookedHours: number; contractedHours: number }>;
   requestStatus: string; requestNote: string; leadName: string;
 };
 
@@ -19,6 +20,39 @@ const links = (value: unknown) => Array.isArray(value) ? value.filter((id): id i
 const selected = (value: unknown) => Array.isArray(value)
   ? value.map((item) => typeof item === "string" ? item : typeof item === "object" && item && "name" in item ? String(item.name) : "").filter(Boolean).join(", ")
   : str(value);
+
+function bookingWeeks(startDate: string, endDate: string) {
+  if (!isIsoDate(startDate) || !isIsoDate(endDate) || endDate < startDate) return [];
+  const result: string[] = [];
+  const start = monday(new Date(`${startDate}T00:00:00Z`));
+  const end = new Date(`${endDate}T00:00:00Z`);
+  for (let week = start; week <= end; week = new Date(week.getTime() + 7 * 86400000)) result.push(iso(week));
+  return result;
+}
+
+function withWeeklyClashes(rows: BookingRow[], people: Person[]) {
+  const peopleById = new Map(people.map((person) => [person.id, person]));
+  const totals = new Map<string, number>();
+  for (const row of rows) {
+    if (row.requestStatus === "Declined by lead") continue;
+    for (const weekStart of bookingWeeks(row.startDate, row.endDate)) {
+      const key = `${row.personId}|${weekStart}`;
+      totals.set(key, (totals.get(key) ?? 0) + row.hoursPerWeek);
+    }
+  }
+  return rows.map((row) => {
+    const person = peopleById.get(row.personId);
+    const clashWeeks = row.requestStatus === "Declined by lead" || !person ? [] : bookingWeeks(row.startDate, row.endDate).flatMap((weekStart) => {
+      const bookedHours = totals.get(`${row.personId}|${weekStart}`) ?? 0;
+      if (bookedHours <= person.contractedHours) return [];
+      const weekLabel = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${weekStart}T00:00:00Z`));
+      return [{ weekStart, weekLabel, bookedHours, contractedHours: person.contractedHours }];
+    });
+    const clashFlagged = clashWeeks.length > 0;
+    const clashNote = clashWeeks.map((week) => `Week starting ${week.weekLabel}: ${week.bookedHours} hours booked against ${week.contractedHours} contracted hours.`).join(" ");
+    return { ...row, clashFlagged, clashNote, clashWeeks };
+  });
+}
 
 async function getPeople(): Promise<Person[]> {
   const f = airtable.fields;
@@ -44,7 +78,7 @@ async function getBookingRows(): Promise<BookingRow[]> {
   ]);
   const peopleById = new Map(people.map((person) => [person.id, person]));
   const projectsById = new Map(projects.map((project) => [project.id, project]));
-  return rows.map((record) => {
+  const bookings = rows.map((record) => {
     const personId = links(get(record, f.resourceBookings.person))[0] ?? "";
     const projectId = links(get(record, f.resourceBookings.project))[0] ?? "";
     const project = projectsById.get(projectId);
@@ -53,11 +87,30 @@ async function getBookingRows(): Promise<BookingRow[]> {
       personId, personName: peopleById.get(personId)?.name ?? "Unknown person", projectId,
       projectName: project?.name ?? "Unknown project", startDate: str(get(record, f.resourceBookings.startDate)),
       endDate: str(get(record, f.resourceBookings.endDate)), hoursPerWeek: num(get(record, f.resourceBookings.hoursPerWeek)),
-      confirmedOn: str(get(record, f.resourceBookings.confirmedOn)), clashFlagged: get(record, f.resourceBookings.clashFlagged) === true,
-      clashNote: str(get(record, f.resourceBookings.clashNote)), requestStatus: selected(get(record, f.resourceBookings.requestStatus)),
+      confirmedOn: str(get(record, f.resourceBookings.confirmedOn)), clashFlagged: false,
+      clashNote: "", clashWeeks: [], requestStatus: selected(get(record, f.resourceBookings.requestStatus)),
       requestNote: str(get(record, f.resourceBookings.requestNote)), leadName: project?.leadIds.map((id) => peopleById.get(id)?.name).filter(Boolean).join(", ") ?? "",
     };
   }).sort((a, b) => a.startDate.localeCompare(b.startDate) || a.projectName.localeCompare(b.projectName));
+  return withWeeklyClashes(bookings, people);
+}
+
+export async function syncBookingClashFlags() {
+  const f = airtable.fields.resourceBookings;
+  const [bookings, records] = await Promise.all([
+    getBookingRows(),
+    listAirtableRecords("resourceBookings", [f.clashFlagged]),
+  ]);
+  const bookingsById = new Map(bookings.map((booking) => [booking.id, booking]));
+  const updates = records.flatMap((record) => {
+    const booking = bookingsById.get(record.id);
+    if (!booking) return [];
+    const storedFlag = get(record, f.clashFlagged) === true;
+    const storedNote = str(get(record, f.clashNote));
+    if (storedFlag === booking.clashFlagged && storedNote === booking.clashNote) return [];
+    return [{ id: record.id, fields: { [f.clashFlagged]: booking.clashFlagged, [f.clashNote]: booking.clashNote } }];
+  });
+  if (updates.length) await updateAirtableRecords("resourceBookings", updates);
 }
 
 export async function getMyBookingRows(account: DemoAccount) {
@@ -94,14 +147,20 @@ export async function createBookingRequest(input: { account: DemoAccount; projec
   const f = airtable.fields.resourceBookings;
   const existing = await getBookingRows();
   const person = (await getPeople()).find((item) => item.id === input.account.personId);
-  const overlaps = existing.filter((row) => row.personId === input.account.personId && row.requestStatus !== "Declined by lead" && row.startDate <= input.endDate && row.endDate >= input.startDate).reduce((sum, row) => sum + row.hoursPerWeek, input.hoursPerWeek);
-  const isClash = Boolean(person && overlaps > person.contractedHours);
+  const proposed: BookingRow = {
+    id: "proposed", bookingId: "", label: "", personId: input.account.personId, personName: person?.name ?? "", projectId: project.id, projectName: project.name,
+    startDate: input.startDate, endDate: input.endDate, hoursPerWeek: input.hoursPerWeek, confirmedOn: "", clashFlagged: false, clashNote: "", clashWeeks: [],
+    requestStatus: "Requested by person", requestNote: input.note, leadName: "",
+  };
+  const proposedWithClash = person ? withWeeklyClashes([...existing, proposed], [person]).at(-1) : undefined;
+  const isClash = proposedWithClash?.clashFlagged ?? false;
   const created = await createAirtableRecords("resourceBookings", [{ fields: {
     [f.label]: `${project.name} (offline request)`, [f.person]: [input.account.personId], [f.project]: [project.id],
     [f.requestedBy]: [input.account.personId], [f.requestStatus]: "Requested by person", [f.requestNote]: input.note.trim(),
     [f.startDate]: input.startDate, [f.endDate]: input.endDate, [f.hoursPerWeek]: input.hoursPerWeek,
-    [f.clashFlagged]: isClash, ...(isClash ? { [f.clashNote]: `This request would add booked hours above the person's contracted ${person?.contractedHours ?? 0} hours per week.` } : {}),
+    [f.clashFlagged]: isClash, ...(isClash ? { [f.clashNote]: proposedWithClash?.clashNote } : {}),
   } }]);
+  await syncBookingClashFlags();
   return { bookingRecordId: created[0]?.id, leadNames: (await getPeople()).filter((item) => project.leadIds.includes(item.id)).map((item) => item.name) };
 }
 
@@ -113,6 +172,7 @@ export async function decideBookingRequest(account: DemoAccount, bookingRecordId
   if (!project) throw new Error("You can only decide requests for projects you lead.");
   const statusField = airtable.fields.resourceBookings.requestStatus;
   await updateAirtableRecords("resourceBookings", [{ id: booking.id, fields: { [statusField]: approve ? "Approved by lead" : "Declined by lead" } }]);
+  await syncBookingClashFlags();
 }
 
 function quarterBounds(quarter: string) {

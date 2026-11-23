@@ -584,6 +584,14 @@ h2 {
   font-size: 0.78rem;
 }
 
+.home-functions { margin: 1.1rem 0 1.4rem; padding: 1.35rem; border: 1px solid var(--color-subtle-border); border-radius: var(--radius-card); background: var(--color-surface-soft); }
+.home-function-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; }
+.home-function-card { position: relative; display: grid; gap: 0.35rem; min-height: 7rem; padding: 1rem 2.8rem 1rem 1rem; border: 1px solid var(--color-subtle-border); border-radius: 0.7rem; background: var(--color-bg); color: var(--color-text); text-decoration: none; }
+.home-function-card:hover { background: var(--color-surface-warm); }
+.home-function-card strong { font-size: 0.95rem; }
+.home-function-card > span:not(.home-function-arrow) { color: var(--color-muted); font-size: 0.77rem; line-height: 1.45; }
+.home-function-arrow { position: absolute; top: 0.9rem; right: 1rem; font-size: 1rem; }
+
 .notice-card strong {
   display: block;
   margin-bottom: 0.2rem;
@@ -705,6 +713,9 @@ h2 {
 .booking-request-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; gap: 0.8rem; }
 .booking-request-form label { display: grid; gap: 0.3rem; color: var(--color-text); font-size: 0.75rem; font-weight: 600; }
 .booking-request-form input, .booking-request-form select, .booking-request-form textarea { width: 100%; min-height: 2.55rem; padding: 0.55rem 0.7rem; border: 1px solid var(--color-subtle-border); border-radius: 0.55rem; background: var(--color-bg); color: var(--color-text); font: inherit; font-size: 0.8rem; }
+.booking-request-form select { appearance: none; padding-right: 2.4rem; }
+.booking-project-label { position: relative; }
+.booking-project-label::after { position: absolute; right: 0.9rem; bottom: 0.95rem; width: 0.42rem; height: 0.42rem; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ""; pointer-events: none; transform: rotate(45deg); }
 .booking-request-form textarea { resize: vertical; }
 .request-note-label { grid-column: span 3; }
 .booking-request-form .offline-check { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.5rem; font-weight: 500; }
@@ -764,6 +775,28 @@ h2 {
 .hr-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
 .hr-table th, .hr-table td { padding: 0.65rem 0.55rem; border-bottom: 1px solid var(--color-subtle-border); text-align: left; vertical-align: top; }
 .hr-table th { position: sticky; top: 0; background: var(--color-surface-soft); font-weight: 650; }
+.clash-banner { margin: 0 0 1rem; padding: 1rem 1.1rem; border-left: 4px solid var(--color-status-amber); border-radius: 0.6rem; background: var(--color-status-amber-bg); font-size: 0.82rem; }
+.clash-banner strong { font-weight: 700; }
+.clash-banner p { margin: 0.3rem 0 0.55rem; color: var(--color-muted); }
+.clash-banner ul { margin: 0; padding-left: 1.15rem; }
+.booking-view-toolbar { display: flex; justify-content: flex-end; gap: 0.35rem; margin: -0.25rem 0 0.8rem; }
+.view-button { min-height: 2rem; padding: 0.35rem 0.75rem; border: 1px solid var(--color-subtle-border); border-radius: 999px; background: var(--color-bg); color: var(--color-text); font: inherit; font-size: 0.73rem; cursor: pointer; }
+.view-button.selected { border-color: var(--color-text); background: var(--color-text); color: var(--color-bg); }
+.booking-calendar { overflow-x: auto; }
+.calendar-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.65rem; }
+.calendar-toolbar h3 { margin: 0; font-size: 1rem; font-weight: 650; }
+.calendar-toolbar > div { display: flex; align-items: center; gap: 0.35rem; }
+.calendar-toolbar .text-button { min-height: 2rem; padding: 0.3rem 0.65rem; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(7rem, 1fr)); min-width: 50rem; border-top: 1px solid var(--color-subtle-border); border-left: 1px solid var(--color-subtle-border); }
+.calendar-weekday { padding: 0.5rem; border-right: 1px solid var(--color-subtle-border); border-bottom: 1px solid var(--color-subtle-border); background: var(--color-surface-soft); color: var(--color-muted); font-size: 0.7rem; font-weight: 650; }
+.calendar-day { min-height: 7.5rem; padding: 0.35rem; border-right: 1px solid var(--color-subtle-border); border-bottom: 1px solid var(--color-subtle-border); background: var(--color-bg); }
+.calendar-day.outside-month { background: var(--color-surface-soft); }
+.calendar-date { display: inline-grid; min-width: 1.45rem; min-height: 1.45rem; place-items: center; margin-bottom: 0.25rem; border-radius: 50%; color: var(--color-muted); font-size: 0.7rem; }
+.calendar-events { display: grid; gap: 0.25rem; }
+.calendar-event { display: grid; gap: 0.1rem; padding: 0.3rem; border-left: 2px solid var(--color-text); border-radius: 0.25rem; background: var(--color-surface-warm); overflow-wrap: anywhere; }
+.calendar-event strong { font-size: 0.64rem; line-height: 1.2; }
+.calendar-event small, .calendar-event > span { font-size: 0.58rem; color: var(--color-muted); line-height: 1.25; }
+.calendar-event-clash { border-left-color: var(--color-status-amber); background: var(--color-status-amber-bg); }
 .hr-people-heading { align-items: center; }
 .hr-people-heading h2 { margin: 0; font-size: 1.65rem; font-weight: 550; }
 .hr-person-link { color: var(--color-text); font-weight: 650; text-decoration: underline; text-underline-offset: 0.15em; }
@@ -917,6 +950,7 @@ h2 {
   }
 
   .hr-import-grid { grid-template-columns: 1fr; }
+  .home-function-grid { grid-template-columns: 1fr; }
   .hr-upload-dialog { padding: 1rem; }
   .hr-people-heading { align-items: flex-start; flex-direction: column; }
   .hr-person-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
