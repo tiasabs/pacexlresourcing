@@ -1,7 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { BookingsTable } from "@/components/BookingsTable";
-import { BookingRequestInbox } from "@/components/BookingRequestInbox";
 import { getProjectBookingRows } from "@/lib/airtable/workspace";
 import { canViewAllBookings, hasAnyRole } from "@/lib/auth/permissions";
 import { getDemoSession } from "@/lib/demo/session";
@@ -11,11 +10,31 @@ export default async function ProjectBookingsPage() {
   if (!account) redirect("/");
   if (!canViewAllBookings(account) && !hasAnyRole(account, ["project_lead"])) redirect("/home");
   const { projects, bookings } = await getProjectBookingRows(account);
-  const requests = bookings.filter((row) => row.requestStatus === "Requested by person");
+  const now = new Date();
+  const nextMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
+  const nextMonthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 2, 0)).toISOString().slice(0, 10);
+  const summaries = projects.map((project) => {
+    const active = bookings.filter((booking) => booking.projectId === project.id && booking.requestStatus !== "Declined by lead");
+    const pending = active.filter((booking) => booking.requestStatus === "Requested by person").length;
+    const hasNextMonthBookings = active.some((booking) => booking.startDate <= nextMonthEnd && booking.endDate >= nextMonthStart);
+    const hasCapacityIssue = active.some((booking) => booking.clashFlagged);
+    const flags = [
+      ...(!hasNextMonthBookings ? ["No bookings next month"] : []),
+      ...(hasCapacityIssue ? ["Capacity review"] : []),
+      ...(pending ? [`${pending} request${pending === 1 ? "" : "s"} to review`] : []),
+    ];
+    return { ...project, bookingCount: active.length, flags };
+  });
   return <AppShell account={account}>
-    <section className="dashboard-intro"><div><p className="eyebrow">Project teams</p><h1>Project bookings</h1><p className="dashboard-lede">Bookings for projects you lead, plus requests from people who were approached offline.</p></div></section>
-    <section className="hr-records-section"><div className="data-overview-heading"><div><p className="eyebrow">Your projects</p><h2>{projects.length} project{projects.length === 1 ? "" : "s"}</h2></div></div>{projects.length > 0 && <ul className="project-list">{projects.map((project) => <li key={project.id}>{project.name}</li>)}</ul>}</section>
-    <section className="hr-records-section"><div className="data-overview-heading"><div><p className="eyebrow">Waiting for review</p><h2>{requests.length} booking request{requests.length === 1 ? "" : "s"}</h2></div></div><BookingRequestInbox requests={requests} /></section>
-    <section className="hr-records-section"><div className="data-overview-heading"><div><p className="eyebrow">People on your projects</p><h2>Bookings</h2></div></div><BookingsTable rows={bookings} showPerson /></section>
+    <section className="dashboard-intro"><div><p className="eyebrow">Project resourcing</p><h1>Your projects</h1><p className="dashboard-lede">Select a project to review its bookings and resourcing details.</p></div></section>
+    <section className="project-overview-grid" aria-label="Projects and resourcing flags">
+      {summaries.map((project) => <Link className="project-overview-card" href={`/projects/${project.id}`} key={project.id}>
+        <span className="project-overview-arrow" aria-hidden="true">↗</span>
+        <span className="eyebrow">{project.bookingCount} active booking{project.bookingCount === 1 ? "" : "s"}</span>
+        <strong>{project.name}</strong>
+        <span className="project-issue-list">{project.flags.length ? project.flags.map((flag) => <span className="project-issue-flag" key={flag}>{flag}</span>) : <span className="project-issue-clear">No current resourcing flags</span>}</span>
+      </Link>)}
+      {!summaries.length && <p className="empty-state">No projects are assigned to this Project Lead yet.</p>}
+    </section>
   </AppShell>;
 }

@@ -9,9 +9,10 @@ type Person = { id: string; name: string; firstName: string; team: string; manag
 export type BookingRow = {
   id: string; bookingId: string; label: string; personId: string; personName: string; projectId: string; projectName: string;
   startDate: string; endDate: string; hoursPerWeek: number; confirmedOn: string; clashFlagged: boolean; clashNote: string;
-  clashWeeks: Array<{ weekStart: string; weekLabel: string; bookedHours: number; contractedHours: number }>;
+  clashWeeks: Array<{ weekStart: string; weekLabel: string; bookedHours: number; capacityHours: number; ratio: number; projectNames: string[] }>;
   requestStatus: string; requestNote: string; leadName: string;
 };
+export type TeamRosterRow = { personId: string; name: string; team: string; bookingCount: number; flaggedProjects: string[]; hasCapacityAlert: boolean };
 
 const get = (record: AirtableRecord, fieldId: string) => record.fields[fieldId];
 const str = (value: unknown) => typeof value === "string" ? value : "";
@@ -30,26 +31,75 @@ function bookingWeeks(startDate: string, endDate: string) {
   return result;
 }
 
-function withWeeklyClashes(rows: BookingRow[], people: Person[]) {
+function weekCapacity(person: Person, weekStart: string, leaves: AirtableRecord[], holidays: AirtableRecord[]) {
+  const f = airtable.fields;
+  const week = new Date(`${weekStart}T00:00:00Z`);
+  const weekEnd = new Date(week); weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+  const holidayDates = new Set(holidays
+    .filter((row) => selected(get(row, f.publicHolidays.region)) === person.region)
+    .map((row) => str(get(row, f.publicHolidays.date)))
+    .filter((date) => date >= iso(week) && date <= iso(weekEnd) && weekday(new Date(`${date}T00:00:00Z`))));
+  const allPersonHolidayDates = new Set(holidays
+    .filter((row) => selected(get(row, f.publicHolidays.region)) === person.region)
+    .map((row) => str(get(row, f.publicHolidays.date))));
+  const leaveHours = leaves
+    .filter((row) => links(get(row, f.plannedLeave.person)).includes(person.id) && selected(get(row, f.plannedLeave.status)) === "Approved")
+    .reduce((sum, row) => {
+      const startValue = str(get(row, f.plannedLeave.startDate));
+      const endValue = str(get(row, f.plannedLeave.endDate));
+      const leaveStart = new Date(`${startValue}T00:00:00Z`);
+      const leaveEnd = new Date(`${endValue}T00:00:00Z`);
+      if (!isIsoDate(startValue) || !isIsoDate(endValue) || leaveStart > weekEnd || leaveEnd < week) return sum;
+      let effectiveLeaveWeekdays = 0, effectiveOverlapWeekdays = 0;
+      for (let day = new Date(leaveStart); day <= leaveEnd; day = nextDay(day)) {
+        const date = iso(day);
+        if (!weekday(day) || allPersonHolidayDates.has(date)) continue;
+        effectiveLeaveWeekdays++;
+        if (day >= week && day <= weekEnd) effectiveOverlapWeekdays++;
+      }
+      const leaveDays = num(get(row, f.plannedLeave.leaveDays));
+      const proportionalDays = effectiveLeaveWeekdays ? leaveDays * effectiveOverlapWeekdays / effectiveLeaveWeekdays : 0;
+      return sum + proportionalDays * person.contractedHours / person.workdays;
+    }, 0);
+  const dailyHours = person.workdays ? person.contractedHours / person.workdays : 0;
+  const holidayHours = holidayDates.size * dailyHours;
+  const availableWorkdays = Math.max(0, Math.min(person.workdays, 5 - holidayDates.size));
+  const maximumLeaveHours = availableWorkdays * dailyHours;
+  return { capacity: Math.max(0, person.contractedHours - holidayHours - Math.min(leaveHours, maximumLeaveHours)), leaveHours: Math.min(leaveHours, maximumLeaveHours), holidayHours };
+}
+
+function withWeeklyCapacityFlags(rows: BookingRow[], people: Person[], leaves: AirtableRecord[], holidays: AirtableRecord[], redThreshold: number) {
   const peopleById = new Map(people.map((person) => [person.id, person]));
   const totals = new Map<string, number>();
+  const projectsByWeek = new Map<string, Map<string, string>>();
   for (const row of rows) {
     if (row.requestStatus === "Declined by lead") continue;
     for (const weekStart of bookingWeeks(row.startDate, row.endDate)) {
       const key = `${row.personId}|${weekStart}`;
       totals.set(key, (totals.get(key) ?? 0) + row.hoursPerWeek);
+      if (!projectsByWeek.has(key)) projectsByWeek.set(key, new Map());
+      projectsByWeek.get(key)?.set(row.projectId, row.projectName);
     }
   }
+  const capacities = new Map<string, { bookedHours: number; capacityHours: number; ratio: number; weekLabel: string; projectNames: string[] }>();
+  const firstVisibleWeek = iso(monday(new Date()));
+  for (const [key, bookedHours] of totals) {
+    const [personId, weekStart] = key.split("|");
+    if (weekStart < firstVisibleWeek) continue;
+    const person = peopleById.get(personId);
+    if (!person) continue;
+    const capacityHours = weekCapacity(person, weekStart, leaves, holidays).capacity;
+    const ratio = capacityHours > 0 ? bookedHours / capacityHours : bookedHours > 0 ? 2 : 0;
+    const weekLabel = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${weekStart}T00:00:00Z`));
+    capacities.set(key, { bookedHours, capacityHours, ratio, weekLabel, projectNames: Array.from(projectsByWeek.get(key)?.values() ?? []) });
+  }
   return rows.map((row) => {
-    const person = peopleById.get(row.personId);
-    const clashWeeks = row.requestStatus === "Declined by lead" || !person ? [] : bookingWeeks(row.startDate, row.endDate).flatMap((weekStart) => {
-      const bookedHours = totals.get(`${row.personId}|${weekStart}`) ?? 0;
-      if (bookedHours <= person.contractedHours) return [];
-      const weekLabel = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${weekStart}T00:00:00Z`));
-      return [{ weekStart, weekLabel, bookedHours, contractedHours: person.contractedHours }];
+    const clashWeeks = row.requestStatus === "Declined by lead" ? [] : bookingWeeks(row.startDate, row.endDate).flatMap((weekStart) => {
+      const capacity = capacities.get(`${row.personId}|${weekStart}`);
+      return capacity && capacity.ratio > redThreshold ? [{ weekStart, ...capacity }] : [];
     });
     const clashFlagged = clashWeeks.length > 0;
-    const clashNote = clashWeeks.map((week) => `Week starting ${week.weekLabel}: ${week.bookedHours} hours booked against ${week.contractedHours} contracted hours.`).join(" ");
+    const clashNote = clashFlagged ? `This booking falls in a week above ${Math.round(redThreshold * 100)}% of available capacity.` : "";
     return { ...row, clashFlagged, clashNote, clashWeeks };
   });
 }
@@ -73,9 +123,16 @@ async function getProjects(): Promise<Project[]> {
 
 async function getBookingRows(): Promise<BookingRow[]> {
   const f = airtable.fields;
-  const [rows, people, projects] = await Promise.all([
-    listAirtableRecords("resourceBookings", Object.values(f.resourceBookings)), getPeople(), getProjects(),
+  const [rows, people, projects, leaves, holidays, settings] = await Promise.all([
+    listAirtableRecords("resourceBookings", Object.values(f.resourceBookings)),
+    getPeople(),
+    getProjects(),
+    listAirtableRecords("plannedLeave", [f.plannedLeave.person, f.plannedLeave.status, f.plannedLeave.startDate, f.plannedLeave.endDate, f.plannedLeave.leaveDays]),
+    listAirtableRecords("publicHolidays", [f.publicHolidays.date, f.publicHolidays.region]),
+    listAirtableRecords("settings", [f.settings.settingName, f.settings.redPercent]),
   ]);
+  const applicationSettings = settings.find((row) => get(row, f.settings.settingName) === "Application Settings");
+  const redThreshold = num(applicationSettings && get(applicationSettings, f.settings.redPercent)) || 1.1;
   const peopleById = new Map(people.map((person) => [person.id, person]));
   const projectsById = new Map(projects.map((project) => [project.id, project]));
   const bookings = rows.map((record) => {
@@ -92,7 +149,7 @@ async function getBookingRows(): Promise<BookingRow[]> {
       requestNote: str(get(record, f.resourceBookings.requestNote)), leadName: project?.leadIds.map((id) => peopleById.get(id)?.name).filter(Boolean).join(", ") ?? "",
     };
   }).sort((a, b) => a.startDate.localeCompare(b.startDate) || a.projectName.localeCompare(b.projectName));
-  return withWeeklyClashes(bookings, people);
+  return withWeeklyCapacityFlags(bookings, people, leaves, holidays, redThreshold);
 }
 
 export async function syncBookingClashFlags() {
@@ -125,6 +182,26 @@ export async function getTeamBookingRows(account: DemoAccount) {
   return (await getBookingRows()).filter((row) => visibleIds.has(row.personId));
 }
 
+export async function getTeamRosterRows(account: DemoAccount): Promise<TeamRosterRow[]> {
+  const [people, bookings] = await Promise.all([getPeople(), getBookingRows()]);
+  const visiblePeople = account.assignedRoles.includes("admin")
+    ? people.filter((person) => person.status !== "Left organisation")
+    : people.filter((person) => person.status !== "Left organisation" && (person.id === account.personId || person.managerIds.includes(account.personId)));
+  return visiblePeople.map((person) => {
+    const personBookings = bookings.filter((booking) => booking.personId === person.id && booking.requestStatus !== "Declined by lead");
+    const flaggedProjects = Array.from(new Map(personBookings.filter((booking) => booking.clashFlagged).map((booking) => [booking.projectId, booking.projectName])).values());
+    return { personId: person.id, name: person.name, team: person.team, bookingCount: personBookings.length, flaggedProjects, hasCapacityAlert: flaggedProjects.length > 0 };
+  }).sort((a, b) => Number(b.hasCapacityAlert) - Number(a.hasCapacityAlert) || a.name.localeCompare(b.name));
+}
+
+export async function getTeamMemberBookingRows(account: DemoAccount, personId: string) {
+  const [people, bookings] = await Promise.all([getPeople(), getBookingRows()]);
+  const person = people.find((item) => item.id === personId);
+  const canSee = account.assignedRoles.includes("admin") || personId === account.personId || Boolean(person?.managerIds.includes(account.personId));
+  if (!person || !canSee) return null;
+  return { person, bookings: bookings.filter((booking) => booking.personId === personId) };
+}
+
 export async function getProjectBookingRows(account: DemoAccount) {
   const [projects, rows] = await Promise.all([getProjects(), getBookingRows()]);
   if (account.assignedRoles.includes("admin")) return { projects, bookings: rows };
@@ -145,20 +222,11 @@ export async function createBookingRequest(input: { account: DemoAccount; projec
   if (!Number.isFinite(input.hoursPerWeek) || input.hoursPerWeek <= 0 || input.hoursPerWeek > 168) throw new Error("Hours per week must be greater than 0 and no more than 168.");
   if (input.note.length > 500) throw new Error("Notes must be 500 characters or fewer.");
   const f = airtable.fields.resourceBookings;
-  const existing = await getBookingRows();
-  const person = (await getPeople()).find((item) => item.id === input.account.personId);
-  const proposed: BookingRow = {
-    id: "proposed", bookingId: "", label: "", personId: input.account.personId, personName: person?.name ?? "", projectId: project.id, projectName: project.name,
-    startDate: input.startDate, endDate: input.endDate, hoursPerWeek: input.hoursPerWeek, confirmedOn: "", clashFlagged: false, clashNote: "", clashWeeks: [],
-    requestStatus: "Requested by person", requestNote: input.note, leadName: "",
-  };
-  const proposedWithClash = person ? withWeeklyClashes([...existing, proposed], [person]).at(-1) : undefined;
-  const isClash = proposedWithClash?.clashFlagged ?? false;
   const created = await createAirtableRecords("resourceBookings", [{ fields: {
     [f.label]: `${project.name} (offline request)`, [f.person]: [input.account.personId], [f.project]: [project.id],
     [f.requestedBy]: [input.account.personId], [f.requestStatus]: "Requested by person", [f.requestNote]: input.note.trim(),
     [f.startDate]: input.startDate, [f.endDate]: input.endDate, [f.hoursPerWeek]: input.hoursPerWeek,
-    [f.clashFlagged]: isClash, ...(isClash ? { [f.clashNote]: proposedWithClash?.clashNote } : {}),
+    [f.clashFlagged]: false,
   } }]);
   await syncBookingClashFlags();
   return { bookingRecordId: created[0]?.id, leadNames: (await getPeople()).filter((item) => project.leadIds.includes(item.id)).map((item) => item.name) };
@@ -207,40 +275,42 @@ export async function getQuarterlyUtilisation(quarter: string) {
     for (const week of weeks) {
       const weekEnd = new Date(week); weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
       const booked = bookings.filter((row) => row.personId === person.id && row.requestStatus !== "Declined by lead" && row.startDate <= iso(weekEnd) && row.endDate >= iso(week)).reduce((sum, row) => sum + row.hoursPerWeek, 0);
-      const personHolidayDates = new Set(holidays.filter((row) => selected(get(row, f.publicHolidays.region)) === person.region && str(get(row, f.publicHolidays.date)) >= iso(week) && str(get(row, f.publicHolidays.date)) <= iso(weekEnd)).map((row) => str(get(row, f.publicHolidays.date))));
-      const leaveHours = leaves.filter((row) => links(get(row, f.plannedLeave.person)).includes(person.id) && selected(get(row, f.plannedLeave.status)) === "Approved")
-        .reduce((sum, row) => {
-          const leaveStart = new Date(`${str(get(row, f.plannedLeave.startDate))}T00:00:00Z`);
-          const leaveEnd = new Date(`${str(get(row, f.plannedLeave.endDate))}T00:00:00Z`);
-          if (Number.isNaN(leaveStart.valueOf()) || Number.isNaN(leaveEnd.valueOf()) || leaveStart > weekEnd || leaveEnd < week) return sum;
-          let weekdaysInOverlap = 0, weekdaysInLeave = 0;
-          for (let day = new Date(leaveStart); day <= leaveEnd; day = nextDay(day)) if (weekday(day) && !personHolidayDates.has(iso(day))) {
-            weekdaysInLeave++;
-            if (day >= week && day <= weekEnd) weekdaysInOverlap++;
-          }
-          const totalLeaveDays = num(get(row, f.plannedLeave.leaveDays));
-          const proportionalDays = weekdaysInLeave ? totalLeaveDays * weekdaysInOverlap / weekdaysInLeave : 0;
-          return sum + proportionalDays * person.contractedHours / person.workdays;
-        }, 0);
-      const dailyHours = person.workdays ? person.contractedHours / person.workdays : 0;
-      const holidayHours = personHolidayDates.size * dailyHours;
-      const weekdaysThisWeek = Array.from({ length: 5 }, (_, index) => { const day = new Date(week); day.setUTCDate(day.getUTCDate() + index); return iso(day); });
-      const maxLeaveHoursAfterHolidays = Math.max(0, Math.min(person.workdays, weekdaysThisWeek.length - personHolidayDates.size) * dailyHours);
-      const capacity = Math.max(0, person.contractedHours - holidayHours - Math.min(leaveHours, maxLeaveHoursAfterHolidays));
+      const { capacity, leaveHours, holidayHours } = weekCapacity(person, iso(week), leaves, holidays);
       quarterCapacity += capacity; quarterBooked += booked;
       const ratio = capacity > 0 ? booked / capacity : booked > 0 ? 2 : 0;
       if (ratio > peak) peak = ratio;
       weekRecords.push({
         key: `${person.id}-${iso(week)}`, personId: person.id, week: iso(week), contracted: person.contractedHours,
-        leave: Math.min(leaveHours, maxLeaveHoursAfterHolidays), holiday: holidayHours, capacity, booked, ratio,
+        leave: leaveHours, holiday: holidayHours, capacity, booked, ratio,
         status: ratio > red ? "Red" : ratio >= amber ? "Amber" : "Green",
       });
     }
     const status = peak > red ? "Red" : peak >= amber ? "Amber" : "Green";
     return { personId: person.id, name: person.name, team: person.team, quarterBooked, quarterCapacity, utilisation: quarterCapacity ? quarterBooked / quarterCapacity : 0, peak, status };
   }).sort((a, b) => b.peak - a.peak || a.name.localeCompare(b.name));
+  const teamsByName = new Map<string, { name: string; quarterBooked: number; quarterCapacity: number; peak: number; peopleCount: number; reviewPeopleCount: number }>();
+  for (const person of summaries) {
+    const teamName = person.team.split(",")[0]?.trim() || "Unassigned";
+    const team = teamsByName.get(teamName) ?? { name: teamName, quarterBooked: 0, quarterCapacity: 0, peak: 0, peopleCount: 0, reviewPeopleCount: 0 };
+    team.quarterBooked += person.quarterBooked;
+    team.quarterCapacity += person.quarterCapacity;
+    team.peak = Math.max(team.peak, person.peak);
+    team.peopleCount++;
+    if (person.status === "Red") team.reviewPeopleCount++;
+    teamsByName.set(teamName, team);
+  }
+  const teamSummaries = Array.from(teamsByName.values()).map((team) => ({
+    ...team,
+    utilisation: team.quarterCapacity ? team.quarterBooked / team.quarterCapacity : 0,
+    status: team.peak > red ? "Red" as const : team.peak >= amber ? "Amber" as const : "Green" as const,
+  })).sort((a, b) => b.utilisation - a.utilisation || a.name.localeCompare(b.name));
   await writePersonWeeks(quarter, weekRecords);
-  return { quarter, summaries, totals: { booked: summaries.reduce((sum, item) => sum + item.quarterBooked, 0), capacity: summaries.reduce((sum, item) => sum + item.quarterCapacity, 0) } };
+  return { quarter, summaries, teams: teamSummaries, thresholds: { amber, red }, totals: { booked: summaries.reduce((sum, item) => sum + item.quarterBooked, 0), capacity: summaries.reduce((sum, item) => sum + item.quarterCapacity, 0) } };
+}
+
+export async function getTeamQuarterlyUtilisation(quarter: string, teamName: string) {
+  const report = await getQuarterlyUtilisation(quarter);
+  return { ...report, summaries: report.summaries.filter((row) => (row.team.split(",")[0]?.trim() || "Unassigned") === teamName) };
 }
 
 async function writePersonWeeks(quarter: string, weeks: Array<{ key: string; personId: string; week: string; contracted: number; leave: number; holiday: number; capacity: number; booked: number; ratio: number; status: "Green" | "Amber" | "Red" }>) {
