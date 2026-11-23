@@ -9,7 +9,7 @@ export default async function ProjectBookingsPage() {
   const account = await getDemoSession();
   if (!account) redirect("/");
   if (!canViewAllBookings(account) && !hasAnyRole(account, ["project_lead"])) redirect("/home");
-  const { projects, bookings } = await getProjectBookingRows(account);
+  const { projects, bookings, milestones } = await getProjectBookingRows(account);
   const now = new Date();
   const nextMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString().slice(0, 10);
   const nextMonthEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 2, 0)).toISOString().slice(0, 10);
@@ -18,9 +18,14 @@ export default async function ProjectBookingsPage() {
     const pending = active.filter((booking) => booking.requestStatus === "Requested by person").length;
     const hasNextMonthBookings = active.some((booking) => booking.startDate <= nextMonthEnd && booking.endDate >= nextMonthStart);
     const hasCapacityIssue = active.some((booking) => booking.clashFlagged);
+    const unfilledMilestones = milestones.filter((milestone) => milestone.projectId === project.id && !["Complete", "Cancelled"].includes(milestone.status)).filter((milestone) => {
+      const allocated = active.filter((booking) => booking.milestoneId === milestone.id && booking.personConfirmationStatus !== "Declined").reduce((sum, booking) => sum + booking.hoursPerWeek, 0);
+      return allocated < milestone.hoursPerWeekRequired;
+    });
     const flags = [
       ...(!hasNextMonthBookings ? ["No bookings next month"] : []),
       ...(hasCapacityIssue ? ["Capacity review"] : []),
+      ...(unfilledMilestones.length ? [`${unfilledMilestones.length} milestone${unfilledMilestones.length === 1 ? "" : "s"} need resourcing`] : []),
       ...(pending ? [`${pending} request${pending === 1 ? "" : "s"} to review`] : []),
     ];
     return { ...project, bookingCount: active.length, flags };

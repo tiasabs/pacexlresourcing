@@ -11,6 +11,7 @@ export const airtable = {
     effortBands: "tblnYoYaTgB2wnTXf",
     personWeeks: "tblqMLkDqJVjDCMv4",
     importLog: "tblAjw055qDzpSPkI",
+    projectMilestones: "tbltsRvAqyCYi5E8A",
   },
   fields: {
     people: {
@@ -82,6 +83,23 @@ export const airtable = {
       requestedBy: "flduCf0sDk5uOka6I",
       requestStatus: "fld2C2FLBXA0ofXM9",
       requestNote: "fldufAD7ryuenr2XO",
+      milestone: "fld78lLoGlCE55I03",
+      personConfirmationStatus: "fldvArYQhpVqDghfI",
+      source: "fldVsTs6MKkP9YV9R",
+    },
+    projectMilestones: {
+      name: "fldEaL1jA3WTQ2LyS",
+      project: "fldYY6hNb6KCVN4QN",
+      plannedStartDate: "fldyycFfUnZO09BnU",
+      plannedEndDate: "fld8vUffcdEJUm39r",
+      expectedStartDate: "fldFjAGVITp4Bs9ba",
+      expectedEndDate: "fldNO3o926PSFGc9q",
+      hoursPerWeekRequired: "fldfsfYLi5Tvi9ETU",
+      teamRequested: "flddNpzM7GsmyMd8g",
+      status: "fldPSu1hUop8X83PS",
+      description: "fldWploKSDTWed1li",
+      firstBookingDate: "fldFUaW4SOJkPVGv9",
+      plannedDatesLocked: "fld7N7KLpGxS624L9",
     },
     publicHolidays: {
       label: "fldR76HeaHoDCCwYw",

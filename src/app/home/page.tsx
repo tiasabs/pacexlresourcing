@@ -73,7 +73,7 @@ export default async function HomePage() {
                 ))}
               </dl>
               <p className="data-freshness">
-                People last seen in an HR file: {airtableOverview.peopleLastSeenInHrFile
+                People and leave last refreshed: {airtableOverview.peopleLastSeenInHrFile
                   ? new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(
                       new Date(airtableOverview.peopleLastSeenInHrFile),
                     )

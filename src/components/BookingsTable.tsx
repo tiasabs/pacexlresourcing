@@ -8,6 +8,9 @@ function date(value: string) {
 }
 
 export function bookingStatusLabel(row: BookingRow) {
+  if (row.personConfirmationStatus === "Awaiting response") return "Waiting for your response";
+  if (row.personConfirmationStatus === "Declined") return "Declined by you";
+  if (row.personConfirmationStatus === "Confirmed") return "Confirmed";
   if (row.requestStatus === "Requested by person") return "Waiting for Project Lead";
   if (row.requestStatus === "Approved by lead") return "Approved by Project Lead";
   if (row.requestStatus === "Declined by lead") return "Declined by Project Lead";
