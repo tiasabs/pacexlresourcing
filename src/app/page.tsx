@@ -20,9 +20,7 @@ export default async function AccessPage() {
       <section className="access-hero" aria-labelledby="page-title">
         <div className="hero-copy">
           <h1 id="page-title">Choose an account</h1>
-          <p className="hero-intro">
-            Select a role to explore resourcing information from that perspective.
-          </p>
+          <p className="hero-intro">Choose a demo account.</p>
         </div>
       </section>
 

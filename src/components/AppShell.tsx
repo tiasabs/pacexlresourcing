@@ -61,7 +61,7 @@ export function AppShell({
           <div className="sidebar-label">Workspace</div>
           <nav className="side-nav">
             {navItems.map((item, index) => (
-              <Link className={pathname === item.href ? "side-link active" : "side-link"} href={item.href} key={item.href}>
+              <Link className={pathname === item.href || pathname.startsWith(`${item.href}/`) ? "side-link active" : "side-link"} href={item.href} key={item.href} aria-current={pathname === item.href || pathname.startsWith(`${item.href}/`) ? "page" : undefined}>
                 <span className="nav-dot" aria-hidden="true" />
                 {item.label}
               </Link>

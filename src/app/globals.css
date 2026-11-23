@@ -418,6 +418,7 @@ h2 {
 
 .side-link.active {
   font-weight: 650;
+  box-shadow: inset 3px 0 0 var(--color-text);
 }
 
 .nav-dot {
@@ -763,6 +764,22 @@ h2 {
 .hr-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
 .hr-table th, .hr-table td { padding: 0.65rem 0.55rem; border-bottom: 1px solid var(--color-subtle-border); text-align: left; vertical-align: top; }
 .hr-table th { position: sticky; top: 0; background: var(--color-surface-soft); font-weight: 650; }
+.hr-people-heading { align-items: center; }
+.hr-people-heading h2 { margin: 0; font-size: 1.65rem; font-weight: 550; }
+.hr-person-link { color: var(--color-text); font-weight: 650; text-decoration: underline; text-underline-offset: 0.15em; }
+.hr-person-link:hover { text-decoration-thickness: 2px; }
+.hr-upload-dialog { width: min(68rem, calc(100vw - 2rem)); max-width: none; max-height: calc(100vh - 2rem); overflow: auto; margin: auto; padding: 1.4rem; border: 1px solid var(--color-subtle-border); border-radius: var(--radius-card); background: var(--color-bg); color: var(--color-text); }
+.hr-upload-dialog::backdrop { background: rgb(0 0 0 / 45%); }
+.hr-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.hr-dialog-heading .eyebrow { margin: 0 0 0.25rem; }
+.hr-dialog-heading h2 { margin: 0; font-size: 1.5rem; font-weight: 550; }
+.hr-import-grid .hr-import-card { margin: 0; }
+.hr-person-intro h1 { font-size: clamp(2.4rem, 5vw, 4rem); }
+.hr-back-link { margin-bottom: 0.75rem; }
+.hr-person-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin: 0; }
+.hr-person-details > div { padding: 0.8rem; border: 1px solid var(--color-subtle-border); border-radius: 0.65rem; background: var(--color-surface-soft); }
+.hr-person-details dt { margin-bottom: 0.25rem; color: var(--color-muted); font-size: 0.7rem; }
+.hr-person-details dd { margin: 0; overflow-wrap: anywhere; font-size: 0.85rem; font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {
   html * {
@@ -900,6 +917,9 @@ h2 {
   }
 
   .hr-import-grid { grid-template-columns: 1fr; }
+  .hr-upload-dialog { padding: 1rem; }
+  .hr-people-heading { align-items: flex-start; flex-direction: column; }
+  .hr-person-details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .booking-request-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .request-note-label { grid-column: 1 / -1; }
   .booking-request-form > .upload-message { grid-column: 1 / -1; }
@@ -911,4 +931,8 @@ h2 {
   .data-count-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+@media (max-width: 420px) {
+  .hr-person-details { grid-template-columns: 1fr; }
 }

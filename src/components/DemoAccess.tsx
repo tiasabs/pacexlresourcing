@@ -50,9 +50,6 @@ export function DemoAccess({ accounts }: { accounts: DemoAccount[] }) {
           </button>
         ))}
       </div>
-      <p className="demo-disclaimer">
-        Demo access only. Choose a persona to explore its view; no password is required.
-      </p>
       <p aria-live="polite" className="form-message" role="status">
         {pending ? "Opening your demo account…" : error}
       </p>

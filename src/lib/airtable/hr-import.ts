@@ -456,12 +456,30 @@ export async function commitHrImport(previewId: string) {
 export async function getHrCurrentLists() {
   const f = airtable.fields;
   const [people, leave] = await Promise.all([
-    listAirtableRecords("people", [f.people.employeeId, f.people.fullName, f.people.workEmail, f.people.team, f.people.region, f.people.status, f.people.contractedHours, f.people.workingDaysPerWeek]),
+    listAirtableRecords("people", [f.people.employeeId, f.people.fullName, f.people.workEmail, f.people.team, f.people.region, f.people.status, f.people.contractedHours, f.people.workingDaysPerWeek, f.people.roleName, f.people.roleLevel, f.people.lineManager, f.people.startDate, f.people.endDate]),
     listAirtableRecords("plannedLeave", [f.plannedLeave.leaveId, f.plannedLeave.title, f.plannedLeave.person, f.plannedLeave.type, f.plannedLeave.status, f.plannedLeave.startDate, f.plannedLeave.endDate, f.plannedLeave.leaveDays, f.plannedLeave.hrSyncStatus]),
   ]);
   const personNames = new Map(people.map((person) => [person.id, val(person, f.people.fullName) ?? stringVal(person, f.people.employeeId)]));
   return {
-    people: people.map((person) => ({ id: person.id, employeeId: val(person, f.people.employeeId), name: val(person, f.people.fullName), email: val(person, f.people.workEmail), team: val(person, f.people.team), region: val(person, f.people.region), status: val(person, f.people.status), hours: val(person, f.people.contractedHours), days: val(person, f.people.workingDaysPerWeek) })),
-    leave: leave.map((record) => ({ id: record.id, leaveId: val(record, f.plannedLeave.leaveId), title: val(record, f.plannedLeave.title), person: Array.isArray(val(record, f.plannedLeave.person)) ? (val(record, f.plannedLeave.person) as string[]).map((id) => personNames.get(id)).join(", ") : "", type: val(record, f.plannedLeave.type), status: val(record, f.plannedLeave.status), startDate: val(record, f.plannedLeave.startDate), endDate: val(record, f.plannedLeave.endDate), days: val(record, f.plannedLeave.leaveDays), sync: val(record, f.plannedLeave.hrSyncStatus) })),
+    people: people.map((person) => ({
+      id: person.id,
+      employeeId: val(person, f.people.employeeId),
+      name: val(person, f.people.fullName),
+      email: val(person, f.people.workEmail),
+      team: val(person, f.people.team),
+      region: val(person, f.people.region),
+      status: val(person, f.people.status),
+      hours: val(person, f.people.contractedHours),
+      days: val(person, f.people.workingDaysPerWeek),
+      role: val(person, f.people.roleName),
+      roleLevel: val(person, f.people.roleLevel),
+      manager: Array.isArray(val(person, f.people.lineManager)) ? (val(person, f.people.lineManager) as string[]).map((id) => personNames.get(id)).join(", ") : "",
+      startDate: val(person, f.people.startDate),
+      endDate: val(person, f.people.endDate),
+    })),
+    leave: leave.map((record) => {
+      const personIds = Array.isArray(val(record, f.plannedLeave.person)) ? val(record, f.plannedLeave.person) as string[] : [];
+      return { id: record.id, leaveId: val(record, f.plannedLeave.leaveId), title: val(record, f.plannedLeave.title), person: personIds.map((id) => personNames.get(id)).join(", "), personIds, type: val(record, f.plannedLeave.type), status: val(record, f.plannedLeave.status), startDate: val(record, f.plannedLeave.startDate), endDate: val(record, f.plannedLeave.endDate), days: val(record, f.plannedLeave.leaveDays), sync: val(record, f.plannedLeave.hrSyncStatus) };
+    }),
   };
 }
