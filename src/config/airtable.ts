@@ -28,6 +28,8 @@ export const airtable = {
       contractedHours: "fldA1xyuUehh1vJde",
       workingDaysPerWeek: "fldgFaQRPxIjwxMkO",
       lineManager: "fldTwwcbEYVcjku8k",
+      bookings: "fld33e2b6KAy1KQdH",
+      projects: "fldi1rjPfxeG1qwv4",
       startDate: "fldUDfZUIk0LvdUcs",
       endDate: "fldhNH3bLH7JPFqMp",
       lastSeenInHRFile: "fld8hKmi3USXjJsA6",
@@ -51,6 +53,7 @@ export const airtable = {
       effortBand: "fldsij9RuxaJqX88P",
       decisionStatus: "fldumegErKDfNR02s",
       confirmationStatus: "fld2XDiG8KxditXqS",
+      bookings: "fldCRImYl06JYZlei",
     },
     plannedLeave: {
       leaveId: "fldkcAnX8Dyj8oNrm",
@@ -76,6 +79,9 @@ export const airtable = {
       confirmedOn: "fld7I2NNiW7U4Z5eH",
       clashFlagged: "fld6DilWiZwmGEvzX",
       clashNote: "fldzeN4soyEze4Kzm",
+      requestedBy: "flduCf0sDk5uOka6I",
+      requestStatus: "fld2C2FLBXA0ofXM9",
+      requestNote: "fldufAD7ryuenr2XO",
     },
     publicHolidays: {
       label: "fldR76HeaHoDCCwYw",

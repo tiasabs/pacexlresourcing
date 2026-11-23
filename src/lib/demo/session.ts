@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
-import { getDemoAccount } from "@/lib/demo/accounts";
+import { getDemoAccount } from "@/lib/airtable/app-accounts";
 
 const cookieName = "resourcing_demo_persona";
 const maxAgeSeconds = 60 * 60 * 12;
@@ -30,9 +30,8 @@ export function createDemoSessionToken(accountId: string) {
 export function verifyDemoSessionToken(token: string) {
   const [accountId, issuedAtRaw, providedSignature] = token.split(".");
   const issuedAt = Number(issuedAtRaw);
-  const account = getDemoAccount(accountId ?? "");
 
-  if (!account || !Number.isFinite(issuedAt) || !providedSignature) return null;
+  if (!accountId || !Number.isFinite(issuedAt) || !providedSignature) return null;
   const now = Math.floor(Date.now() / 1000);
   if (issuedAt > now + 60 || now - issuedAt > maxAgeSeconds) return null;
 
@@ -42,16 +41,18 @@ export function verifyDemoSessionToken(token: string) {
     return null;
   }
 
-  return account;
+  return accountId;
 }
 
 export async function getDemoSession() {
   const token = (await cookies()).get(cookieName)?.value;
-  return token ? verifyDemoSessionToken(token) : null;
+  if (!token) return null;
+  const accountId = verifyDemoSessionToken(token);
+  return accountId ? getDemoAccount(accountId) : null;
 }
 
 export async function setDemoSession(accountId: string) {
-  const account = getDemoAccount(accountId);
+  const account = await getDemoAccount(accountId);
   if (!account) throw new Error("Unknown demo account.");
 
   (await cookies()).set(cookieName, createDemoSessionToken(accountId), {

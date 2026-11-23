@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { setDemoSession, clearDemoSession } from "@/lib/demo/session";
-import { getDemoAccount } from "@/lib/demo/accounts";
+import { getDemoAccount } from "@/lib/airtable/app-accounts";
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as
@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     | null;
   const accountId = typeof body?.accountId === "string" ? body.accountId : "";
 
-  if (!getDemoAccount(accountId)) {
+  if (!(await getDemoAccount(accountId))) {
     return NextResponse.json({ error: "Choose one of the demo accounts." }, { status: 400 });
   }
 

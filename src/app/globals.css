@@ -117,6 +117,7 @@ a:focus-visible {
   justify-content: flex-end;
   gap: 1rem;
 }
+.topbar-greeting { color: var(--color-muted); font-size: 0.79rem; font-weight: 600; white-space: nowrap; }
 
 .demo-pill,
 .section-count,
@@ -696,6 +697,35 @@ h2 {
 .upload-message-warning { background: var(--color-status-amber-bg); color: var(--color-text); }
 .upload-message-error { background: var(--color-status-red-bg); color: var(--color-status-red); }
 .hr-import-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1.2rem; }
+.request-card { margin: 1.2rem 0; padding: 1.35rem; border: 1px solid var(--color-subtle-border); border-radius: var(--radius-card); background: var(--color-surface-warm); }
+.request-card .eyebrow { margin-bottom: 0.3rem; }
+.request-card h2 { margin: 0 0 0.35rem; font-size: 1.35rem; font-weight: 550; }
+.request-card > p:not(.eyebrow) { margin: 0 0 1rem; color: var(--color-muted); font-size: 0.82rem; }
+.booking-request-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; gap: 0.8rem; }
+.booking-request-form label { display: grid; gap: 0.3rem; color: var(--color-text); font-size: 0.75rem; font-weight: 600; }
+.booking-request-form input, .booking-request-form select, .booking-request-form textarea { width: 100%; min-height: 2.55rem; padding: 0.55rem 0.7rem; border: 1px solid var(--color-subtle-border); border-radius: 0.55rem; background: var(--color-bg); color: var(--color-text); font: inherit; font-size: 0.8rem; }
+.booking-request-form textarea { resize: vertical; }
+.request-note-label { grid-column: span 3; }
+.booking-request-form .offline-check { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.5rem; font-weight: 500; }
+.booking-request-form .offline-check input { width: 1rem; min-height: 1rem; }
+.booking-request-form > .primary-action { justify-self: start; }
+.booking-request-form > .upload-message { grid-column: 1 / -1; margin: 0; }
+.empty-state { margin: 0; padding: 1rem; color: var(--color-muted); font-size: 0.84rem; }
+.table-subtitle { display: block; margin-top: 0.25rem; color: var(--color-muted); }
+.load-status { display: inline-flex; align-items: center; padding: 0.22rem 0.55rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+.status-green { background: var(--color-status-green-bg); color: var(--color-status-green); }
+.status-amber { background: var(--color-status-amber-bg); color: var(--color-status-amber); }
+.status-red { background: var(--color-status-red-bg); color: var(--color-status-red); }
+.request-inbox { display: grid; gap: 0.65rem; }
+.request-inbox-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.9rem; border: 1px solid var(--color-subtle-border); border-radius: 0.65rem; background: var(--color-bg); font-size: 0.82rem; }
+.request-inbox-item p { margin: 0.35rem 0 0; color: var(--color-muted); font-size: 0.76rem; }
+.request-inbox-item .hr-warning { margin-top: 0.55rem; }
+.request-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.project-list { margin: 0; padding-left: 1.2rem; }
+.project-list li { margin: 0.3rem 0; }
+.quarter-picker { display: flex; align-items: end; flex-wrap: wrap; gap: 0.5rem; padding: 0.7rem; border: 1px solid var(--color-subtle-border); border-radius: 0.75rem; background: var(--color-surface-soft); }
+.quarter-picker label { align-self: center; color: var(--color-muted); font-size: 0.72rem; }
+.quarter-picker select { min-height: 2.4rem; padding: 0.4rem 0.6rem; border: 1px solid var(--color-subtle-border); border-radius: 0.5rem; background: var(--color-bg); font: inherit; font-size: 0.76rem; }
 .hr-import-card, .hr-records-section { margin-bottom: 1.2rem; padding: 1.35rem; border: 1px solid var(--color-subtle-border); border-radius: var(--radius-card); background: var(--color-surface-soft); }
 .hr-import-title { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .hr-import-title .eyebrow { margin-bottom: 0.35rem; }
@@ -870,6 +900,10 @@ h2 {
   }
 
   .hr-import-grid { grid-template-columns: 1fr; }
+  .booking-request-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .request-note-label { grid-column: 1 / -1; }
+  .booking-request-form > .upload-message { grid-column: 1 / -1; }
+  .request-inbox-item { align-items: flex-start; flex-direction: column; }
   .hr-import-card, .hr-records-section { padding: 1rem; }
   .hr-table { min-width: 42rem; }
   .hr-home-action { align-items: flex-start; flex-direction: column; padding: 1rem; }

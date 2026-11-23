@@ -1,11 +1,12 @@
 import { DemoAccess } from "@/components/DemoAccess";
-import { demoAccounts } from "@/lib/demo/accounts";
+import { getDemoAccounts } from "@/lib/airtable/app-accounts";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getDemoSession } from "@/lib/demo/session";
 
 export default async function AccessPage() {
   if (await getDemoSession()) redirect("/home");
+  const accounts = await getDemoAccounts().catch(() => []);
 
   return (
     <main className="access-page">
@@ -31,9 +32,9 @@ export default async function AccessPage() {
             <p className="eyebrow">Demo access</p>
             <h2 id="choose-account-title">Demo accounts</h2>
           </div>
-          <span className="section-count">06 personas</span>
+          <span className="section-count">{String(accounts.length).padStart(2, "0")} personas</span>
         </div>
-        <DemoAccess accounts={demoAccounts} />
+        <DemoAccess accounts={accounts} />
       </section>
     </main>
   );

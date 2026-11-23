@@ -23,9 +23,9 @@ export default async function HomePage() {
     <AppShell account={account}>
       <section className="dashboard-intro">
         <div>
-          <p className="eyebrow">Good to have you here</p>
-          <h1>Resourcing overview</h1>
-          <p className="dashboard-lede">Explore the workspace from this demo persona.</p>
+          <p className="eyebrow">Resourcing overview</p>
+          <h1>Hi, {account.firstName}</h1>
+          <p className="dashboard-lede">Your workload, bookings and team activity.</p>
         </div>
         <div className="current-role-card">
           <span className="eyebrow">Viewing as</span>
