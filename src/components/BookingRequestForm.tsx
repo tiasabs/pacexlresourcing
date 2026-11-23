@@ -1,0 +1,41 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+type Project = { id: string; name: string; leadIds: string[] };
+
+export function BookingRequestForm({ projects }: { projects: Project[] }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    setBusy(true); setMessage("");
+    const form = new FormData(formElement);
+    try {
+      const response = await fetch("/api/bookings/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId: form.get("projectId"), startDate: form.get("startDate"), endDate: form.get("endDate"), hoursPerWeek: Number(form.get("hoursPerWeek")), note: form.get("note"), offlineRequest: form.get("offlineRequest") === "on" }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "The request could not be sent.");
+      formElement.reset();
+      setMessage(`Request sent to ${result.leadNames.join(", ")}. It now appears in your bookings as pending and is visible to the Project Lead.`);
+      router.refresh();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "The request could not be sent."); }
+    finally { setBusy(false); }
+  }
+  return <section className="request-card">
+    <p className="eyebrow">Was a project agreed offline?</p><h2>Ask the Project Lead to record it</h2>
+    <p>The request appears as a pending booking so your workload is visible while the Project Lead reviews it. It does not send email.</p>
+    {projects.length ? <form className="booking-request-form" onSubmit={submit}>
+      <label>Project<select name="projectId" required defaultValue=""><option value="" disabled>Select a project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+      <label>Start date<input name="startDate" type="date" required /></label>
+      <label>End date<input name="endDate" type="date" required /></label>
+      <label>Hours per week<input name="hoursPerWeek" type="number" min="0.5" max="168" step="0.5" required /></label>
+      <label className="request-note-label">Note (optional)<textarea name="note" maxLength={500} rows={2} placeholder="Add context for the Project Lead" /></label>
+      <label className="offline-check"><input name="offlineRequest" type="checkbox" required /> I was asked about this project offline.</label>
+      <button className="primary-action" disabled={busy} type="submit">{busy ? "Sending request…" : "Send request to Project Lead"}</button>
+      {message && <p className="upload-message upload-message-success" role="status">{message}</p>}
+    </form> : <p className="empty-state">No projects with an assigned Project Lead are available yet.</p>}
+  </section>;
+}

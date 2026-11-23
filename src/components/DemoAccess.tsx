@@ -4,15 +4,6 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DemoAccount } from "@/lib/demo/accounts";
 
-const symbols: Record<string, string> = {
-  individual: "01",
-  "line-manager": "02",
-  "project-lead": "03",
-  admin: "04",
-  "c-suite": "05",
-  hr: "06",
-};
-
 export function DemoAccess({ accounts }: { accounts: DemoAccount[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -38,8 +29,9 @@ export function DemoAccess({ accounts }: { accounts: DemoAccount[] }) {
 
   return (
     <div className="demo-access">
+      {!accounts.length && <p className="upload-message upload-message-error" role="status">No enabled demo accounts linked to People records were found in Airtable.</p>}
       <div className="demo-grid" aria-label="Choose a demo account">
-        {accounts.map((account) => (
+        {accounts.map((account, index) => (
           <button
             className="persona-card"
             disabled={pending}
@@ -48,7 +40,7 @@ export function DemoAccess({ accounts }: { accounts: DemoAccount[] }) {
             type="button"
           >
             <span className="persona-index" aria-hidden="true">
-              {symbols[account.id]}
+              {String(index + 1).padStart(2, "0")}
             </span>
             <span className="persona-copy">
               <span className="persona-title">{account.title}</span>
