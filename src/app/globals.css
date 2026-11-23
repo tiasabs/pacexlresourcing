@@ -915,13 +915,15 @@ h2 {
   }
 
   .side-nav {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.25rem;
-    overflow-x: auto;
   }
 
   .side-link {
-    flex: 0 0 auto;
+    min-width: 0;
+    white-space: normal;
+    line-height: 1.2;
     padding: 0.55rem 0.65rem;
     font-size: 0.74rem;
   }
@@ -1038,6 +1040,7 @@ h2 {
 }
 .project-overview-card:hover, .team-utilisation-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-soft); }
 .project-overview-card > strong { max-width: 90%; font-family: var(--font-heading); font-size: 1.4rem; line-height: 1.15; }
+.project-overview-card > .eyebrow { max-width: calc(100% - 1.5rem); overflow-wrap: anywhere; line-height: 1.4; }
 .project-overview-arrow { position: absolute; top: 0.85rem; right: 0.9rem; color: var(--color-muted); }
 .project-issue-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
 .project-issue-flag, .project-issue-clear { border-radius: 999px; padding: 0.22rem 0.55rem; background: var(--color-status-amber-bg); color: var(--color-status-amber); font-size: 0.7rem; font-weight: 650; }
@@ -1124,6 +1127,10 @@ h2 {
 .milestone-locked-note { grid-column: 1 / -1; margin: 0; color: var(--color-muted); font-size: 0.72rem; }
 
 /* End-to-end project, booking and actual-hours workspaces */
+.project-dashboard-intro { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
+.project-create-trigger { grid-column: 2; grid-row: 1; justify-self: end; gap: 0.45rem; white-space: nowrap; }
+.project-create-trigger-icon { font-size: 1.1rem; line-height: 1; }
+.project-create-form { grid-column: 1 / -1; width: 100%; margin: 0; }
 .booking-create-form, .project-create-form, .account-admin-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 0.75rem; padding: 1rem; border: 1px solid var(--color-subtle-border); border-radius: var(--radius-card); background: var(--color-surface-soft); }
 .booking-create-form > label, .project-create-form > label, .account-admin-form > label, .project-booking-management label { display: grid; gap: 0.3rem; font-size: 0.76rem; font-weight: 650; }
 .booking-create-form input, .booking-create-form select, .project-create-form input, .project-create-form select, .account-admin-form input, .account-admin-form select, .project-booking-management input, .project-booking-management select, .actuals-table input { min-height: 2.4rem; max-width: 100%; padding: 0.45rem 0.6rem; border: 1px solid var(--color-subtle-border); border-radius: 0.5rem; background: var(--color-bg); font: inherit; font-size: 0.8rem; }
@@ -1163,6 +1170,11 @@ h2 {
 @media (max-width: 760px) {
   .booking-create-form, .project-create-form, .account-admin-form, .request-booking-editor, .request-final-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .weekly-actual-summary { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) {
+  .project-dashboard-intro { grid-template-columns: 1fr; }
+  .project-create-trigger { grid-column: 1; grid-row: auto; justify-self: start; }
+  .project-create-form { grid-column: 1; }
 }
 @media (max-width: 480px) {
   .booking-create-form, .project-create-form, .account-admin-form, .request-booking-editor, .request-final-fields { grid-template-columns: 1fr; }
