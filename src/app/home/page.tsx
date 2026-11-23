@@ -6,6 +6,7 @@ import { getDemoSession } from "@/lib/demo/session";
 import {
   canViewAllBookings,
   canViewOrganisationLoad,
+  canRunPeopleRefresh,
   roleLabels,
 } from "@/lib/auth/permissions";
 

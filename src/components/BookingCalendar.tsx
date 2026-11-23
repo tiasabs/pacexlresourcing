@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import type { BookingRow } from "@/lib/airtable/workspace";
-import { bookingStatusLabel } from "@/components/BookingsTable";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const toIso = (date: Date) => date.toISOString().slice(0, 10);
 
-export function BookingCalendar({ rows, initialMonth }: { rows: BookingRow[]; initialMonth: string }) {
+export function BookingCalendar({ rows, initialMonth, onSelect }: { rows: BookingRow[]; initialMonth: string; onSelect?: (row: BookingRow) => void }) {
   const [month, setMonth] = useState(initialMonth);
   const [year, monthNumber] = month.split("-").map(Number);
   const firstDay = new Date(Date.UTC(year, monthNumber - 1, 1));
@@ -37,10 +36,9 @@ export function BookingCalendar({ rows, initialMonth }: { rows: BookingRow[]; in
         const events = rows.filter((row) => row.requestStatus !== "Declined by lead" && row.startDate <= dayIso && row.endDate >= dayIso);
         return <div className={`calendar-day${day.getUTCMonth() !== monthNumber - 1 ? " outside-month" : ""}`} role="gridcell" aria-label={`${dayIso}, ${events.length} booking${events.length === 1 ? "" : "s"}`} key={dayIso}>
           <span className="calendar-date">{day.getUTCDate()}</span>
-          <div className="calendar-events">{events.map((row) => <article className={`calendar-event${row.clashFlagged ? " calendar-event-clash" : ""}`} key={row.id} title={row.clashFlagged ? row.clashNote : bookingStatusLabel(row)}>
-            <strong>{row.projectName}</strong><small>{row.hoursPerWeek} hrs/wk · {bookingStatusLabel(row)}</small>
-            {row.clashFlagged && <span>Over contract</span>}
-          </article>)}</div>
+          <div className="calendar-events">{events.map((row) => <button className={`calendar-event${row.clashFlagged ? " calendar-event-clash" : ""}`} key={row.id} type="button" onClick={() => onSelect?.(row)} aria-label={`View details for ${row.projectName}`}>
+            <strong>{row.projectName}</strong>
+          </button>)}</div>
         </div>;
       })}
     </div>
